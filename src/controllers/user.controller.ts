@@ -8,7 +8,7 @@ export const getCurrentUser = async (req: Request, res: Response) => {
 };
 
 export const getBalances = async (req: Request, res: Response) => {
-  const userId = req.user!.id;
+  const userId = req.userData!.id;
 
   try {
     const balancesRaw = await prisma.balance.findMany({
@@ -72,7 +72,7 @@ export const getBalances = async (req: Request, res: Response) => {
 };
 
 export const getFriends = async (req: Request, res: Response) => {
-  const userId = req.user!.id;
+  const userId = req.userData!.id;
 
   try {
     const balanceWithFriends = await prisma.balance.findMany({
@@ -103,7 +103,7 @@ export const getFriends = async (req: Request, res: Response) => {
 };
 
 export const addOrEditExpense = async (req: Request, res: Response): Promise<void> => {
-  const userId = req.user!.id;
+  const userId = req.userData!.id;
   const {
     paidBy,
     name,
@@ -170,7 +170,7 @@ export const addOrEditExpense = async (req: Request, res: Response): Promise<voi
 
 export const getExpensesWithFriend = async (req: Request, res: Response) => {
   const { friendId } = req.params;
-  const userId = req.user!.id;
+  const userId = req.userData!.id;
 
   try {
     const expenses = await prisma.expense.findMany({
@@ -226,7 +226,7 @@ export const getExpensesWithFriend = async (req: Request, res: Response) => {
 };
 
 export const updateUserDetails = async (req: Request, res: Response) => {
-  const userId = req.user!.id;
+  const userId = req.userData!.id;
   const { name, currency } = req.body;
 
   try {
@@ -250,7 +250,8 @@ export const updateUserDetails = async (req: Request, res: Response) => {
 
 export const inviteFriend = async (req: Request, res: Response): Promise<void> => {
   const { email } = req.body;
-  const userId = req.user!.id;
+  const userId = req.userData!.id;
+  
 
   try {
     const friend = await prisma.user.findUnique({

@@ -9,6 +9,11 @@ const envSchema = z.object({
   GOOGLE_CLIENT_ID: z.string(),
   GOOGLE_CLIENT_SECRET: z.string(),
   JWT_SECRET: z.string(),
+  SOROBAN_RPC_URL: z.string(),
+  SOROBAN_NETWORK_PASSPHRASE: z.string(),
+  SOROBAN_CONTRACT_ID: z.string(),
+  SESSION_SECRET: z.string(),
+  GOOGLE_CALLBACK_URL: z.string(),
 });
 
 export const env = envSchema.parse(process.env);
