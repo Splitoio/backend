@@ -183,7 +183,7 @@ export const addOrEditExpense = async (req: Request, res: Response): Promise<voi
           fileKey,
         )
       : await createGroupExpense(
-          parseInt(groupId),
+          groupId,
           paidBy,
           name,
           category,

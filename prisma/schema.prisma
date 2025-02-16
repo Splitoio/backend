@@ -18,57 +18,40 @@ datasource db {
 // Necessary for Next auth
 
 model Account {
-  id                String  @id @default(cuid())
-  userId            Int
-  type              String
-  provider          String
-  providerAccountId String
-  refresh_token     String? // @db.Text
-  access_token      String? // @db.Text
-  expires_at        Int?
-  token_type        String?
-  scope             String?
-  id_token          String? // @db.Text
-  session_state     String?
-  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  accountId             String
-  providerId            String
-  accessToken           String?
-  refreshToken          String?
-  idToken               String?
-  accessTokenExpiresAt  DateTime?
-  refreshTokenExpiresAt DateTime?
-  password              String?
-  createdAt             DateTime
-  updatedAt             DateTime
-
-  @@unique([provider, providerAccountId])
-  @@map("account")
+  id                     String   @id @default(uuid())
+  accountId              String
+  providerId             String
+  userId                 String
+  accessToken            String?
+  refreshToken           String?
+  idToken                String?
+  accessTokenExpiresAt   DateTime?
+  refreshTokenExpiresAt  DateTime?
+  scope                  String?
+  password               String?
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+  user                   User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model Session {
-  id           String   @id @default(cuid())
-  sessionToken String   @unique
-  userId       Int
-  expires      DateTime
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  expiresAt    DateTime
-  token        String
-  createdAt    DateTime
-  updatedAt    DateTime
-  ipAddress    String?
-  userAgent    String?
-
-  @@unique([token])
+  id        String   @id @default(uuid())
+  expiresAt DateTime
+  token     String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ipAddress String?
+  userAgent String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   @@map("session")
 }
 
 model User {
-  id                  Int                  @id @default(autoincrement())
+  id                  String               @id @default(cuid())
   name                String?
   email               String?              @unique
-  emailVerified       DateTime?
+  emailVerified       Boolean              
   image               String?
   currency            String               @default("USD")
   accounts            Account[]
@@ -85,8 +68,8 @@ model User {
   addedExpenses       Expense[]            @relation("AddedByUser")
   deletedExpenses     Expense[]            @relation("DeletedByUser")
   updatedExpenses     Expense[]            @relation("UpdatedByUser")
-  createdAt           DateTime
-  updatedAt           DateTime
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
   @@map("user")
 }
@@ -100,9 +83,9 @@ model VerificationToken {
 }
 
 model Balance {
-  userId                Int
+  userId                String
   currency              String
-  friendId              Int
+  friendId              String
   amount                Int
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
@@ -114,10 +97,10 @@ model Balance {
 }
 
 model Group {
-  id               Int            @id @default(autoincrement())
+  id               String         @id @default(cuid())
   publicId         String         @unique
   name             String
-  userId           Int
+  userId           String
   defaultCurrency  String         @default("USD")
   createdAt        DateTime       @default(now())
   updatedAt        DateTime       @updatedAt
@@ -129,19 +112,19 @@ model Group {
 }
 
 model GroupUser {
-  groupId Int
-  userId  Int
-  user    User  @relation(fields: [userId], references: [id], onDelete: Cascade)
-  group   Group @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  groupId String
+  userId  String
+  user    User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  group   Group  @relation(fields: [groupId], references: [id], onDelete: Cascade)
 
   @@id([groupId, userId])
 }
 
 model GroupBalance {
-  groupId   Int
+  groupId   String
   currency  String
-  userId    Int
-  firendId  Int
+  userId    String
+  firendId  String
   amount    Int
   updatedAt DateTime @updatedAt
   group     Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
@@ -162,8 +145,8 @@ enum SplitType {
 
 model Expense {
   id                  String               @id @default(cuid())
-  paidBy              Int
-  addedBy             Int
+  paidBy              String
+  addedBy             String
   name                String
   category            String
   amount              Int
@@ -173,10 +156,10 @@ model Expense {
   updatedAt           DateTime             @updatedAt
   currency            String
   fileKey             String?
-  groupId             Int?
+  groupId             String?
   deletedAt           DateTime?
-  deletedBy           Int?
-  updatedBy           Int?
+  deletedBy           String?
+  updatedBy           String?
   group               Group?               @relation(fields: [groupId], references: [id], onDelete: Cascade)
   paidByUser          User                 @relation(name: "PaidByUser", fields: [paidBy], references: [id], onDelete: Cascade)
   addedByUser         User                 @relation(name: "AddedByUser", fields: [addedBy], references: [id], onDelete: Cascade)
@@ -191,7 +174,7 @@ model Expense {
 
 model ExpenseParticipant {
   expenseId String
-  userId    Int
+  userId    String
   amount    Int
   user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
   expense   Expense @relation(fields: [expenseId], references: [id], onDelete: Cascade)
@@ -203,14 +186,14 @@ model ExpenseNote {
   id          String   @id @default(cuid())
   expenseId   String
   note        String
-  createdById Int
+  createdById String
   createdAt   DateTime @default(now())
   createdBy   User     @relation(fields: [createdById], references: [id], onDelete: Cascade)
   expense     Expense  @relation(fields: [expenseId], references: [id], onDelete: Cascade)
 }
 
 model PushNotification {
-  userId       Int    @id
+  userId       String @id
   subscription String
 }
 

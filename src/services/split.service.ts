@@ -3,20 +3,20 @@ import { Prisma, SplitType } from '@prisma/client';
 import { prisma } from '../lib/prisma';
 
 type Participant = {
-  userId: number;
+  userId: string;
   amount: number;
 };
 
 export const createGroupExpense = async (
-  groupId: number,
-  paidBy: number,
+  groupId: string,
+  paidBy: string,
   name: string,
   category: string,
   amount: number,
   splitType: SplitType,
   currency: string,
   participants: Participant[],
-  addedBy: number,
+  addedBy: string,
   expenseDate: Date,
   fileKey?: string,
 ) => {
@@ -103,14 +103,14 @@ export const createGroupExpense = async (
 };
 
 export const addUserExpense = async (
-  paidBy: number,
+  paidBy: string,
   name: string,
   category: string,
   amount: number,
   splitType: SplitType,
   currency: string,
   participants: Participant[],
-  addedBy: number,
+  addedBy: string,
   expenseDate: Date,
   fileKey?: string,
 ) => {
@@ -191,7 +191,7 @@ export const addUserExpense = async (
   });
 };
 
-export const deleteExpense = async (expenseId: string, deletedBy: number) => {
+export const deleteExpense = async (expenseId: string, deletedBy: string) => {
   return await prisma.$transaction(async (tx) => {
     const expense = await tx.expense.findUnique({
       where: { id: expenseId },
@@ -260,14 +260,14 @@ export const deleteExpense = async (expenseId: string, deletedBy: number) => {
 
 export const editExpense = async (
   expenseId: string,
-  paidBy: number,
+  paidBy: string,
   name: string,
   category: string,
   amount: number,
   splitType: SplitType,
   currency: string,
   participants: Participant[],
-  updatedBy: number,
+  updatedBy: string,
   expenseDate: Date,
   fileKey?: string,
 ) => {

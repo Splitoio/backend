@@ -180,12 +180,12 @@ export const getExpensesWithFriend = async (req: Request, res: Response) => {
             paidBy: userId,
             expenseParticipants: {
               some: {
-                userId: parseInt(friendId),
+                userId: friendId,
               },
             },
           },
           {
-            paidBy: parseInt(friendId),
+            paidBy: friendId,
             expenseParticipants: {
               some: {
                 userId,
@@ -210,7 +210,7 @@ export const getExpensesWithFriend = async (req: Request, res: Response) => {
                 userId,
               },
               {
-                userId: parseInt(friendId),
+                userId: friendId,
               },
             ],
           },
@@ -269,6 +269,7 @@ export const inviteFriend = async (req: Request, res: Response): Promise<void> =
       data: {
         email,
         name: email.split('@')[0],
+        emailVerified: false,
       },
     });
 
