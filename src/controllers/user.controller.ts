@@ -8,7 +8,7 @@ export const getCurrentUser = async (req: Request, res: Response) => {
 };
 
 export const getBalances = async (req: Request, res: Response) => {
-  const userId = req.userData!.id;
+  const userId = req.user!.id;
 
   try {
     const balancesRaw = await prisma.balance.findMany({
@@ -71,39 +71,39 @@ export const getBalances = async (req: Request, res: Response) => {
   }
 };
 
-export const getFriends = async (req: Request, res: Response) => {
-  const userId = req.userData!.id;
+// export const getFriends = async (req: Request, res: Response) => {
+//   const userId = req.user!.id;
 
-  try {
-    const balanceWithFriends = await prisma.balance.findMany({
-      where: {
-        userId,
-      },
-      select: {
-        friendId: true,
-      },
-      distinct: ['friendId'],
-    });
+//   try {
+//     const balanceWithFriends = await prisma.balance.findMany({
+//       where: {
+//         userId,
+//       },
+//       select: {
+//         friendId: true,
+//       },
+//       distinct: ['friendId'],
+//     });
 
-    const friendsIds = balanceWithFriends.map((f) => f.friendId);
+//     const friendsIds = balanceWithFriends.map((f) => f.friendId);
 
-    const friends = await prisma.user.findMany({
-      where: {
-        id: {
-          in: friendsIds,
-        },
-      },
-    });
+//     const friends = await prisma.user.findMany({
+//       where: {
+//         id: {
+//           in: friendsIds,
+//         },
+//       },
+//     });
 
-    res.json(friends);
-  } catch (error) {
-    console.error('Get friends error:', error);
-    res.status(500).json({ error: 'Failed to fetch friends' });
-  }
-};
+//     res.json(friends);
+//   } catch (error) {
+//     console.error('Get friends error:', error);
+//     res.status(500).json({ error: 'Failed to fetch friends' });
+//   }
+// };
 
 export const addOrEditExpense = async (req: Request, res: Response): Promise<void> => {
-  const userId = req.userData!.id;
+  const userId = req.user!.id;
   const {
     paidBy,
     name,
@@ -170,7 +170,7 @@ export const addOrEditExpense = async (req: Request, res: Response): Promise<voi
 
 export const getExpensesWithFriend = async (req: Request, res: Response) => {
   const { friendId } = req.params;
-  const userId = req.userData!.id;
+  const userId = req.user!.id;
 
   try {
     const expenses = await prisma.expense.findMany({
@@ -226,7 +226,7 @@ export const getExpensesWithFriend = async (req: Request, res: Response) => {
 };
 
 export const updateUserDetails = async (req: Request, res: Response) => {
-  const userId = req.userData!.id;
+  const userId = req.user!.id;
   const { name, currency } = req.body;
 
   try {
@@ -250,12 +250,12 @@ export const updateUserDetails = async (req: Request, res: Response) => {
 
 export const inviteFriend = async (req: Request, res: Response): Promise<void> => {
   const { email } = req.body;
-  const userId = req.userData!.id;
+  const userId = req.user!.id;
   
 
   try {
     const friend = await prisma.user.findUnique({
-      where: {
+    where: {
         email,
       },
     });
@@ -279,3 +279,74 @@ export const inviteFriend = async (req: Request, res: Response): Promise<void> =
     res.status(500).json({ error: 'Failed to invite friend' });
   }
 };
+
+export const addFriend = async (req: Request, res: Response): Promise<void> => {
+  const userId = req.user!.id;
+  const { friendIdentifier } = req.body;
+
+  try {
+    const friend = await prisma.user.findFirst({
+      where: {
+        OR: [
+        { email: friendIdentifier },
+        { name: friendIdentifier }
+      ]
+    }
+  });
+
+  if (!friend) {
+    res.status(404).json({ message: 'Friend not found', status: 'error' });
+    return;
+  }
+  if (friend.id === userId) {
+    res.status(400).json({ message: 'Cannot add yourself as friend', status: 'error' });
+    return;
+  }
+
+  await prisma.$transaction([
+    prisma.friendship.create({
+      data: {
+        userId: userId,
+        friendId: friend.id,
+      }
+    }),
+    prisma.friendship.create({
+      data: {
+        userId: friend.id,
+        friendId: userId,
+      }
+    })
+  ]);
+
+  res.json({ message: 'Friend added successfully', status: 'success' });
+} catch (error) {
+  console.error('Add friend error:', error);
+  res.status(500).json({ error: 'Failed to add friend' });
+  }
+};
+
+export const getFriends = async (req: Request, res: Response): Promise<void> => {
+  const userId = req.user!.id;
+
+  try {
+    const friends = await prisma.friendship.findMany({
+      where: { userId },
+      include: {
+      friend: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          image: true
+        }
+      }
+    }
+  });
+
+    res.json(friends);
+  } catch (error) {
+    console.error('Get friends error:', error);
+    res.status(500).json({ error: 'Failed to fetch friends' });
+  }
+};
+

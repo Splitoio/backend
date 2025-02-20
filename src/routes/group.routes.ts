@@ -2,7 +2,7 @@
 
 // src/routes/group.routes.ts
 import express from 'express';
-import { authenticateToken } from '../middleware/auth';
+import { getSession } from '../middleware/auth';
 import {
   createGroup,
   getAllGroups,
@@ -13,7 +13,7 @@ import {
 
 const router = express.Router();
 
-router.use(authenticateToken);
+router.use(getSession);
 
 router.post('/', createGroup);
 router.get('/', getAllGroups);

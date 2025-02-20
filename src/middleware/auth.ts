@@ -1,37 +1,34 @@
 import { Request, Response, NextFunction } from "express";
-import jwt from "jsonwebtoken";
 import { prisma } from "../lib/prisma";
-import { env } from "../config/env";
+import { fromNodeHeaders } from "better-auth/node";
+import { auth } from "../lib/auth";
 
-export const authenticateToken = async (
-  req: Request,
-  res: Response,
-  next: NextFunction
-) => {
-  const authHeader = req.headers["authorization"];
-  const token = authHeader && authHeader.split(" ")[1];
+export const getSession = async (req: Request, res: Response, next: NextFunction) => {
 
-  if (!token) {
-    res.status(401).json({ error: "Missing authentication token" });
+  const session = await auth.api.getSession({
+    headers: fromNodeHeaders(req.headers),
+  });
+
+  if (!session) {
+    res.status(401).json({ error: "Missing session" });
 
     return;
   }
 
-  try {
-    const payload = jwt.verify(token, env.JWT_SECRET) as { userId: string };
-    const user = await prisma.user.findUnique({
-      where: { id: payload.userId },
-    });
+  console.log(session);
 
-    if (!user) {
-      res.status(401).json({ error: "User not found" });
+  const user = await prisma.user.findUnique({
+    where: { id: session.user.id },
+  });
 
-      return;
-    }
+  console.log(user);  
+  
+  if (!user) {
+    res.status(401).json({ error: "User not found" });
 
-    req.user = user;
-    next();
-  } catch (error) {
-    res.status(403).json({ error: "Invalid token" });
+    return;
   }
+
+  req.user = user;
+  next();  
 };

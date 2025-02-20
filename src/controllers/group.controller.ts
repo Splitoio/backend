@@ -6,7 +6,7 @@ import { SplitType } from '@prisma/client';
 
 export const createGroup = async (req: Request, res: Response) => {
   const { name, currency = 'USD' } = req.body;
-  const userId = req.userData!.id;
+  const userId = req.user!.id;
 
   try {
     const group = await prisma.group.create({
@@ -30,7 +30,7 @@ export const createGroup = async (req: Request, res: Response) => {
 };
 
 export const getAllGroups = async (req: Request, res: Response) => {
-  const userId = req.userData!.id;
+  const userId = req.user!.id;
 
   try {
     const groups = await prisma.groupUser.findMany({
@@ -57,7 +57,7 @@ export const getAllGroups = async (req: Request, res: Response) => {
 };
 
 export const getAllGroupsWithBalances = async (req: Request, res: Response) => {
-    const userId = req.userData!.id;
+    const userId = req.user!.id;
 
   try {
     const groups = await prisma.groupUser.findMany({
@@ -107,7 +107,7 @@ export const getAllGroupsWithBalances = async (req: Request, res: Response) => {
 
 export const joinGroup = async (req: Request, res: Response): Promise<void> => {
   const { groupId } = req.params;
-  const userId = req.userData!.id;
+  const userId = req.user!.id;
 
   try {
     const group = await prisma.group.findFirst({
@@ -137,7 +137,7 @@ export const joinGroup = async (req: Request, res: Response): Promise<void> => {
 
 export const addOrEditExpense = async (req: Request, res: Response): Promise<void> => {
   const { groupId } = req.params;
-  const userId = req.userData!.id;
+  const userId = req.user!.id;
   const {
     paidBy,
     name,
