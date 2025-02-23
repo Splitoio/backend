@@ -4,7 +4,7 @@
   "main": "index.js",
   "scripts": {
     "start": "node dist/server.js",
-    "dev": "nodemon src/server.ts", 
+    "dev": "nodemon src/server.ts",
     "build": "tsc",
     "test": "echo \"Error: no test specified\" && exit 1",
     "test:api": "ts-node src/tests/api.test.ts",
@@ -12,8 +12,9 @@
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio",
     "prisma:migrate:prod": "prisma migrate deploy",
-    "docker:build": "docker build -t splito-backend .",
-    "docker:run": "docker rm -f splito-backend || true && docker run --name splito-backend -p 4000:4000 --env-file .env splito-backend"
+    "docker:build": "docker build  --platform linux/amd64 -t splito-backend .",
+    "docker:run": "docker rm -f splito-backend || true && docker run --name splito-backend -p 4000:4000 --env-file .env splito-backend",
+    "docker:push": "docker tag splito-backend gcr.io/miraya-447801/splito-service && docker push gcr.io/miraya-447801/splito-service"
   },
   "keywords": [],
   "author": "",
@@ -33,7 +34,7 @@
     "jsonwebtoken": "^9.0.2",
     "morgan": "^1.10.0",
     "nanoid": "^5.0.9",
-    "zod": "^3.24.1"
+    "zod": "^3.24.2"
   },
   "devDependencies": {
     "@types/cors": "^2.8.17",

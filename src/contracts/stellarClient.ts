@@ -1,7 +1,9 @@
-import { Keypair } from "@stellar/stellar-sdk";
-import { Client, basicNodeSigner } from "@stellar/stellar-sdk/lib/contract";
-import { Server } from "@stellar/stellar-sdk/lib/rpc";
-import { env } from "../config/env.js";
+import { rpc, Keypair, contract } from "@stellar/stellar-sdk";
+import { env } from "../config/env";
+
+const Server = rpc.Server;
+const basicNodeSigner = contract.basicNodeSigner;
+class Client extends contract.Client {}
 
 // Add type definitions
 interface SplitMember {

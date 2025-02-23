@@ -1,19 +1,52 @@
-import { Request, Response } from 'express';
-import { prisma } from '../lib/prisma';
-import { nanoid } from 'nanoid';
-import { createGroupExpense, editExpense } from '../services/split.service';
-import { SplitType } from '@prisma/client';
+import { Request, Response } from "express";
+import { prisma } from "../lib/prisma";
+import { nanoid } from "nanoid";
+import { createGroupExpense, editExpense } from "../services/split.service";
+import { SplitType } from "@prisma/client";
+import contactManager from "../contracts/utils";
+import { z } from "zod";
 
 export const createGroup = async (req: Request, res: Response) => {
-  const { name, currency = 'USD' } = req.body;
-  const userId = req.user!.id;
-
   try {
+    const groupSchema = z.object({
+      name: z.string().min(1, "Group name is required"),
+      description: z.string().optional(),
+      imageUrl: z.string().optional(),
+      currency: z.string().default("USD"),
+    });
+
+    const result = groupSchema.safeParse(req.body);
+
+    if (!result.success) {
+      res.status(400).json({ error: result.error.issues });
+      return;
+    }
+
+    const { name, currency } = result.data;
+
+    const user = req.user;
+
+    if (!user) {
+      res.status(401).json({ error: "Unauthorized" });
+      return;
+    }
+
+    // if (!user.stellarAccount) {
+    //   res.status(401).json({ error: "User has no stellar account" });
+    //   return;
+    // }
+
+    const groupId = Math.floor(Math.random() * 1000000000); // 9 digit random int
+
+    // const groupId = await contactManager.createGroup([user.stellarAccount]);
+
+    const userId = req.user!.id;
+
     const group = await prisma.group.create({
       data: {
         name,
-        publicId: nanoid(),
         userId,
+        contractGroupId: groupId,
         defaultCurrency: currency,
         groupUsers: {
           create: {
@@ -24,8 +57,8 @@ export const createGroup = async (req: Request, res: Response) => {
     });
     res.json(group);
   } catch (error) {
-    console.error('Create group error:', error);
-    res.status(500).json({ error: 'Failed to create group' });
+    console.error("Create group error:", error);
+    res.status(500).json({ error: "Failed to create group" });
   }
 };
 
@@ -51,13 +84,13 @@ export const getAllGroups = async (req: Request, res: Response) => {
     });
     res.json(groups);
   } catch (error) {
-    console.error('Get groups error:', error);
-    res.status(500).json({ error: 'Failed to fetch groups' });
+    console.error("Get groups error:", error);
+    res.status(500).json({ error: "Failed to fetch groups" });
   }
 };
 
 export const getAllGroupsWithBalances = async (req: Request, res: Response) => {
-    const userId = req.user!.id;
+  const userId = req.user!.id;
 
   try {
     const groups = await prisma.groupUser.findMany({
@@ -72,7 +105,7 @@ export const getAllGroupsWithBalances = async (req: Request, res: Response) => {
             },
             expenses: {
               orderBy: {
-                createdAt: 'desc',
+                createdAt: "desc",
               },
               take: 1,
             },
@@ -90,7 +123,8 @@ export const getAllGroupsWithBalances = async (req: Request, res: Response) => {
     const groupsWithBalances = sortedGroupsByLatestExpense.map((g) => {
       const balances: Record<string, number> = {};
       for (const balance of g.group.groupBalances) {
-        balances[balance.currency] = (balances[balance.currency] ?? 0) + balance.amount;
+        balances[balance.currency] =
+          (balances[balance.currency] ?? 0) + balance.amount;
       }
       return {
         ...g.group,
@@ -100,8 +134,8 @@ export const getAllGroupsWithBalances = async (req: Request, res: Response) => {
 
     res.json(groupsWithBalances);
   } catch (error) {
-    console.error('Get groups with balances error:', error);
-    res.status(500).json({ error: 'Failed to fetch groups with balances' });
+    console.error("Get groups with balances error:", error);
+    res.status(500).json({ error: "Failed to fetch groups with balances" });
   }
 };
 
@@ -112,12 +146,12 @@ export const joinGroup = async (req: Request, res: Response): Promise<void> => {
   try {
     const group = await prisma.group.findFirst({
       where: {
-        publicId: groupId,
+        contractGroupId: parseInt(groupId),
       },
     });
 
     if (!group) {
-      res.status(404).json({ error: 'Group not found' });
+      res.status(404).json({ error: "Group not found" });
       return;
     }
 
@@ -130,12 +164,15 @@ export const joinGroup = async (req: Request, res: Response): Promise<void> => {
 
     res.json(group);
   } catch (error) {
-    console.error('Join group error:', error);
-    res.status(500).json({ error: 'Failed to join group' });
+    console.error("Join group error:", error);
+    res.status(500).json({ error: "Failed to join group" });
   }
 };
 
-export const addOrEditExpense = async (req: Request, res: Response): Promise<void> => {
+export const addOrEditExpense = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
   const { groupId } = req.params;
   const userId = req.user!.id;
   const {
@@ -163,8 +200,10 @@ export const addOrEditExpense = async (req: Request, res: Response): Promise<voi
       });
 
       if (!expenseParticipant) {
-        res.status(403).json({ error: 'You are not a participant of this expense' });
-        return 
+        res
+          .status(403)
+          .json({ error: "You are not a participant of this expense" });
+        return;
       }
     }
 
@@ -180,7 +219,7 @@ export const addOrEditExpense = async (req: Request, res: Response): Promise<voi
           participants,
           userId,
           expenseDate ?? new Date(),
-          fileKey,
+          fileKey
         )
       : await createGroupExpense(
           groupId,
@@ -193,12 +232,12 @@ export const addOrEditExpense = async (req: Request, res: Response): Promise<voi
           participants,
           userId,
           expenseDate ?? new Date(),
-          fileKey,
+          fileKey
         );
 
     res.json(expense);
   } catch (error) {
-    console.error('Add/Edit expense error:', error);
-    res.status(500).json({ error: 'Failed to create/edit expense' });
+    console.error("Add/Edit expense error:", error);
+    res.status(500).json({ error: "Failed to create/edit expense" });
   }
 };

@@ -3,8 +3,11 @@ import { prisma } from "../lib/prisma";
 import { fromNodeHeaders } from "better-auth/node";
 import { auth } from "../lib/auth";
 
-export const getSession = async (req: Request, res: Response, next: NextFunction) => {
-
+export const getSession = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
   const session = await auth.api.getSession({
     headers: fromNodeHeaders(req.headers),
   });
@@ -21,8 +24,6 @@ export const getSession = async (req: Request, res: Response, next: NextFunction
     where: { id: session.user.id },
   });
 
-  console.log(user);  
-  
   if (!user) {
     res.status(401).json({ error: "User not found" });
 
@@ -30,5 +31,5 @@ export const getSession = async (req: Request, res: Response, next: NextFunction
   }
 
   req.user = user;
-  next();  
+  next();
 };
