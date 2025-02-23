@@ -46,7 +46,7 @@ export const createGroup = async (req: Request, res: Response) => {
       data: {
         name,
         userId,
-        contractGroupId: groupId,
+        // contractGroupId: groupId,
         defaultCurrency: currency,
         groupUsers: {
           create: {
@@ -146,7 +146,7 @@ export const joinGroup = async (req: Request, res: Response): Promise<void> => {
   try {
     const group = await prisma.group.findFirst({
       where: {
-        contractGroupId: parseInt(groupId),
+        id: groupId,
       },
     });
 
