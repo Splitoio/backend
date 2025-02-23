@@ -1,9 +1,7 @@
 import { Request, Response } from "express";
 import { prisma } from "../lib/prisma";
-import { nanoid } from "nanoid";
 import { createGroupExpense, editExpense } from "../services/split.service";
 import { SplitType } from "@prisma/client";
-import contactManager from "../contracts/utils";
 import { z } from "zod";
 
 export const createGroup = async (req: Request, res: Response) => {
@@ -22,7 +20,7 @@ export const createGroup = async (req: Request, res: Response) => {
       return;
     }
 
-    const { name, currency } = result.data;
+    const { name, currency, description, imageUrl } = result.data;
 
     const user = req.user;
 
@@ -46,6 +44,8 @@ export const createGroup = async (req: Request, res: Response) => {
       data: {
         name,
         userId,
+        description,
+        image: imageUrl,
         // contractGroupId: groupId,
         defaultCurrency: currency,
         groupUsers: {
@@ -73,19 +73,69 @@ export const getAllGroups = async (req: Request, res: Response) => {
       include: {
         group: {
           include: {
-            groupUsers: {
-              include: {
-                user: true,
+            createdBy: {
+              select: {
+                id: true,
+                name: true,
               },
             },
+            // groupUsers: {
+            //   include: {
+            //     user: true,
+            //   },
+            // },
           },
         },
       },
     });
-    res.json(groups);
+    const groupsData = groups.map((group) => group.group);
+    res.json(groupsData);
   } catch (error) {
     console.error("Get groups error:", error);
     res.status(500).json({ error: "Failed to fetch groups" });
+  }
+};
+
+export const getGroupById = async (req: Request, res: Response) => {
+  const { groupId } = req.params;
+  const userId = req.user!.id;
+
+  try {
+    const group = await prisma.group.findUnique({
+      where: {
+        id: groupId as string,
+        groupUsers: {
+          some: {
+            userId,
+          },
+        },
+      },
+      include: {
+        groupUsers: {
+          include: {
+            user: true,
+          },
+        },
+        expenses: true,
+        groupBalances: true,
+        createdBy: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+      },
+    });
+
+    if (!group) {
+      res.status(404).json({ error: "Group not found" });
+      return;
+    }
+
+    res.json(group);
+  } catch (error) {
+    console.error("Get group error:", error);
+    res.status(500).json({ error: "Failed to fetch group" });
   }
 };
 
