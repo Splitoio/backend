@@ -1,9 +1,9 @@
 export function toFixedNumber(num: number) {
-  return num / 100;
+  return num;
 }
 
 export function toInteger(num: number) {
-  return Math.round(num * 100);
+  return Math.round(num);
 }
 
 export function toUIString(num: number) {
