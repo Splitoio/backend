@@ -291,3 +291,80 @@ export const addOrEditExpense = async (
     res.status(500).json({ error: "Failed to create/edit expense" });
   }
 };
+
+export const addMemberToGroup = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  const { groupId, newMemberIdentifier } = req.params;
+  // newMemberIdentifier
+  const userId = req.user!.id;
+  const {
+    paidBy,
+    name,
+    category,
+    amount,
+    splitType,
+    currency,
+    participants,
+    fileKey,
+    expenseDate,
+    expenseId,
+  } = req.body;
+
+  try {
+    if (expenseId) {
+      const expenseParticipant = await prisma.expenseParticipant.findUnique({
+        where: {
+          expenseId_userId: {
+            expenseId,
+            userId,
+          },
+        },
+      });
+
+      if (!expenseParticipant) {
+        res
+          .status(403)
+          .json({ error: "You are not a participant of this expense" });
+        return;
+      }
+    }
+
+    const expense = expenseId
+      ? await editExpense(
+          expenseId,
+          paidBy,
+          name,
+          category,
+          amount,
+          splitType as SplitType,
+          currency,
+          participants,
+          userId,
+          expenseDate ?? new Date(),
+          fileKey
+        )
+      : await createGroupExpense(
+          groupId,
+          paidBy,
+          name,
+          category,
+          amount,
+          splitType as SplitType,
+          currency,
+          participants,
+          userId,
+          expenseDate ?? new Date(),
+          fileKey
+        );
+
+    res.json({
+      success: true,
+      message: "Added to group successfully",
+    });
+  } catch (error) {
+    console.error("Add/Edit expense error:", error);
+    res.status(500).json({ error: "Failed to create/edit expense" });
+  }
+};

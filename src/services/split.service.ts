@@ -743,10 +743,10 @@ export async function getCompleteFriendsDetails(userId: string) {
   return friends;
 }
 
-export async function joinGroup(userId: string, publicGroupId: string) {
+export async function joinGroup(userId: string, groupId: string) {
   const group = await prisma.group.findUnique({
     where: {
-      id: publicGroupId,
+      id: groupId,
     },
   });
 

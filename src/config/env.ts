@@ -12,7 +12,8 @@ const envSchema = z.object({
   SOROBAN_NETWORK_PASSPHRASE: z.string(),
   SOROBAN_CONTRACT_ID: z.string(),
   SESSION_SECRET: z.string(),
-  GOOGLE_CALLBACK_URL: z.string(),
+  BACKEND_URL: z.string(),
+  FRONTEND_URL: z.string(),
 });
 
 export const env = envSchema.parse(process.env);

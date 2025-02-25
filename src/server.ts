@@ -10,14 +10,13 @@ import { errorHandler } from "./middleware/errorHandler";
 
 import { fromNodeHeaders, toNodeHandler } from "better-auth/node";
 import { auth } from "./lib/auth";
-import { FRONTEND_URL } from "./utils/constants";
 
 const app = express();
 
 // Move CORS before all routes
 app.use(
   cors({
-    origin: ["http://localhost:3000", FRONTEND_URL],
+    origin: ["http://localhost:3000", env.FRONTEND_URL],
     methods: ["GET", "POST", "PUT", "DELETE"],
     credentials: true,
   })

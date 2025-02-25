@@ -1,10 +1,12 @@
 import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { prisma } from "./prisma";
-import { BASE_URL, FRONTEND_URL } from "../utils/constants";
+import { env } from "../config/env";
+
+console.log(env.BACKEND_URL);
 
 export const auth = betterAuth({
-  baseURL: BASE_URL,
+  baseURL: env.BACKEND_URL,
   database: prismaAdapter(prisma, {
     provider: "postgresql", // or "mysql", "postgresql", ...etc
   }),
@@ -18,5 +20,18 @@ export const auth = betterAuth({
     },
   },
   secret: process.env.SESSION_SECRET,
-  trustedOrigins: ["http://localhost:3000", FRONTEND_URL],
+  trustedOrigins: ["http://localhost:3000", env.FRONTEND_URL],
+  advanced: {
+    defaultCookieAttributes: {
+      secure: true,
+      httpOnly: true,
+      sameSite: "none", // Allows CORS-based cookie sharing across subdomains
+    },
+  },
+  session: {
+    cookieCache: {
+      enabled: true,
+      maxAge: 5 * 60, // Cache duration in seconds
+    },
+  },
 });
