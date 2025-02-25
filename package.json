@@ -15,7 +15,8 @@
     "prisma:types": "npx @kalissaac/prisma-typegen ./interfaces ./prisma/schema.prisma",
     "docker:build": "docker build  --platform linux/amd64 -t splito-backend .",
     "docker:run": "docker rm -f splito-backend || true && docker run --name splito-backend -p 4000:4000 --env-file .env splito-backend",
-    "docker:push": "docker tag splito-backend gcr.io/miraya-447801/splito-service && docker push gcr.io/miraya-447801/splito-service"
+    "docker:push": "docker tag splito-backend gcr.io/miraya-447801/splito-service && docker push gcr.io/miraya-447801/splito-service",
+    "postinstall": "prisma generate"
   },
   "keywords": [],
   "author": "",
