@@ -3,6 +3,7 @@ import { prisma } from "../lib/prisma";
 import { createGroupExpense, editExpense } from "../services/split.service";
 import { SplitType } from "@prisma/client";
 import { z } from "zod";
+import contactManager from "../contracts/utils";
 
 export const createGroup = async (req: Request, res: Response) => {
   try {
@@ -29,14 +30,14 @@ export const createGroup = async (req: Request, res: Response) => {
       return;
     }
 
-    // if (!user.stellarAccount) {
-    //   res.status(401).json({ error: "User has no stellar account" });
-    //   return;
-    // }
+    if (!user.stellarAccount) {
+      res.status(400).json({ error: "User has no stellar account" });
+      return;
+    }
 
-    const groupId = Math.floor(Math.random() * 1000000000); // 9 digit random int
+    // const groupId = Math.floor(Math.random() * 1000000000); // 9 digit random int
 
-    // const groupId = await contactManager.createGroup([user.stellarAccount]);
+    const groupId = await contactManager.createGroup([user.stellarAccount]);
 
     const userId = req.user!.id;
 
@@ -296,68 +297,68 @@ export const addMemberToGroup = async (
   req: Request,
   res: Response
 ): Promise<void> => {
-  const { groupId, newMemberIdentifier } = req.params;
-  // newMemberIdentifier
-  const userId = req.user!.id;
-  const {
-    paidBy,
-    name,
-    category,
-    amount,
-    splitType,
-    currency,
-    participants,
-    fileKey,
-    expenseDate,
-    expenseId,
-  } = req.body;
+  const { memberIdentifier, groupId } = req.body;
+  const userStellarAccount = req.user!.stellarAccount!;
 
   try {
-    if (expenseId) {
-      const expenseParticipant = await prisma.expenseParticipant.findUnique({
-        where: {
-          expenseId_userId: {
-            expenseId,
-            userId,
-          },
-        },
-      });
+    const group = await prisma.group.findUnique({
+      where: {
+        id: groupId,
+      },
+      select: {
+        contractGroupId: true,
+      },
+    });
 
-      if (!expenseParticipant) {
-        res
-          .status(403)
-          .json({ error: "You are not a participant of this expense" });
-        return;
-      }
+    if (!group) {
+      res.status(404).json({ message: "Group not found", status: "error" });
+      return;
     }
 
-    const expense = expenseId
-      ? await editExpense(
-          expenseId,
-          paidBy,
-          name,
-          category,
-          amount,
-          splitType as SplitType,
-          currency,
-          participants,
-          userId,
-          expenseDate ?? new Date(),
-          fileKey
-        )
-      : await createGroupExpense(
-          groupId,
-          paidBy,
-          name,
-          category,
-          amount,
-          splitType as SplitType,
-          currency,
-          participants,
-          userId,
-          expenseDate ?? new Date(),
-          fileKey
-        );
+    const contractGroupId = group.contractGroupId;
+
+    const member = await prisma.user.findFirst({
+      where: {
+        OR: [{ email: memberIdentifier }, { name: memberIdentifier }],
+      },
+    });
+
+    if (!member) {
+      res.status(404).json({ message: "User not found", status: "error" });
+      return;
+    }
+
+    if (!member.stellarAccount) {
+      res
+        .status(400)
+        .json({ message: "User has no stellar account", status: "error" });
+      return;
+    }
+
+    const members: string[] = await contactManager.getGroupMembers(
+      contractGroupId
+    );
+
+    if (!members.includes(userStellarAccount)) {
+      res.status(400).json({
+        message: "You are not a member of this group",
+        status: "error",
+      });
+      return;
+    }
+
+    if (members.includes(member.stellarAccount)) {
+      res.status(400).json({
+        message: "User is already a member of this group",
+        status: "error",
+      });
+      return;
+    }
+
+    await contactManager.addMemberToGroup(
+      contractGroupId,
+      member.stellarAccount
+    );
 
     res.json({
       success: true,

@@ -77,7 +77,7 @@ export class SplitPaymentContract {
     this.client = client;
   }
 
-  async createGroup(members: string[]): Promise<string> {
+  async createGroup(members: string[]): Promise<number> {
     try {
       const tx = await this.client.create_group({ members });
       const { result } = await tx.signAndSend();
@@ -88,7 +88,7 @@ export class SplitPaymentContract {
     }
   }
 
-  async addMember(groupId: string, newMember: string): Promise<boolean> {
+  async addMember(groupId: number, newMember: string): Promise<boolean> {
     try {
       const tx = await this.client.add_member({
         group_id: groupId,
@@ -102,7 +102,7 @@ export class SplitPaymentContract {
     }
   }
 
-  async removeMember(groupId: string, member: string): Promise<boolean> {
+  async removeMember(groupId: number, member: string): Promise<boolean> {
     try {
       const tx = await this.client.remove_member({
         group_id: groupId,
@@ -116,7 +116,7 @@ export class SplitPaymentContract {
     }
   }
 
-  async getGroupMembers(groupId: string): Promise<string[]> {
+  async getGroupMembers(groupId: number): Promise<string[]> {
     try {
       const tx = await this.client.get_group_members({
         group_id: groupId,
@@ -129,7 +129,7 @@ export class SplitPaymentContract {
   }
 
   async addExpense(
-    groupId: string,
+    groupId: number,
     payer: string,
     amount: number,
     description: string,
@@ -152,7 +152,7 @@ export class SplitPaymentContract {
   }
 
   async removeExpense(
-    groupId: string,
+    groupId: number,
     expenseIndex: number,
     authorizedBy: string
   ): Promise<boolean> {
@@ -171,7 +171,7 @@ export class SplitPaymentContract {
   }
 
   async settleDebt(
-    groupId: string,
+    groupId: number,
     from: string,
     to: string,
     amount: number
@@ -200,7 +200,7 @@ export class SplitPaymentContract {
     }
   }
 
-  async getMemberBalance(groupId: string, member: string): Promise<number> {
+  async getMemberBalance(groupId: number, member: string): Promise<number> {
     try {
       const tx = await this.client.get_member_balance({
         group_id: groupId,
@@ -213,7 +213,7 @@ export class SplitPaymentContract {
     }
   }
 
-  async getGroupExpenses(groupId: string): Promise<ExpenseData[]> {
+  async getGroupExpenses(groupId: number): Promise<ExpenseData[]> {
     try {
       const tx = await this.client.get_group_expenses({
         group_id: groupId,

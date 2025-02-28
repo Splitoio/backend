@@ -8,6 +8,7 @@ import {
   joinGroup,
   addOrEditExpense,
   getGroupById,
+  addMemberToGroup,
 } from "../controllers/group.controller";
 
 const router = express.Router();
@@ -20,5 +21,6 @@ router.get("/balances", getAllGroupsWithBalances);
 router.post("/join/:groupId", joinGroup);
 router.get("/:groupId", getGroupById);
 router.post("/:groupId/expenses", addOrEditExpense);
+router.post("/addMember", addMemberToGroup);
 
 export const groupRouter = router;

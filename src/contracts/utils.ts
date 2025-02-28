@@ -7,7 +7,7 @@ import {
 
 class GroupExpenseManager {
   private client: any;
-  private contract: any;
+  private contract!: SplitPaymentContract;
 
   constructor() {
     this.initialize();
@@ -60,28 +60,44 @@ class GroupExpenseManager {
     }
   }
 
-  async viewGroupDetails(groupId: string) {
+  async viewGroupDetails(groupId: number) {
     try {
-      console.log("Getting group members..");
-      const members = await this.contract.getGroupMembers(groupId);
-      console.log("Group members:", members);
-
-      console.log("Getting expenses..");
-      const expenses = await this.contract.getGroupExpenses(groupId);
-      console.log("Group expenses:", expenses);
-
-      console.log("Getting member balances..");
-      for (const member of members) {
-        const balance = await this.contract.getMemberBalance(groupId, member);
-        console.log(`Balance for ${member}:`, balance);
-      }
+      const members = await this.getGroupMembers(groupId);
+      const expenses = await this.getGroupExpenses(groupId);
+      await this.getGroupMemberBalances(groupId, members);
     } catch (error) {
       console.error("Error in viewGroupDetails:", error);
       throw error;
     }
   }
 
-  async settleGroupDebt(groupId: string) {
+  async getGroupMembers(groupId: number) {
+    console.log("Getting group members..");
+    const members = await this.contract.getGroupMembers(groupId);
+    console.log("Group members:", members);
+    return members;
+  }
+
+  async getGroupExpenses(groupId: number) {
+    console.log("Getting expenses..");
+    const expenses = await this.contract.getGroupExpenses(groupId);
+    console.log("Group expenses:", expenses);
+    return expenses;
+  }
+
+  async getGroupMemberBalances(groupId: number, members: string[]) {
+    console.log("Getting member balances..");
+    for (const member of members) {
+      const balance = await this.contract.getMemberBalance(groupId, member);
+      console.log(`Balance for ${member}:`, balance);
+    }
+  }
+
+  async addMemberToGroup(groupId: number, member: string) {
+    await this.contract.addMember(groupId, member);
+  }
+
+  async settleGroupDebt(groupId: number) {
     try {
       const fromMember = process.env.TEST_ACCOUNT_2 as string;
       const toMember = process.env.TEST_ACCOUNT_1 as string;
@@ -124,7 +140,7 @@ class GroupExpenseManager {
     }
   }
 
-  async removeGroupExpense(groupId: string) {
+  async removeGroupExpense(groupId: number) {
     try {
       console.log("Removing first expense...");
       await this.contract.removeExpense(
