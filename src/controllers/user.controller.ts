@@ -1,7 +1,9 @@
-import { Request, Response } from 'express';
-import { prisma } from '../lib/prisma';
-import { addUserExpense, editExpense } from '../services/split.service';
-import { SplitType } from '@prisma/client';
+import { Request, Response } from "express";
+import { prisma } from "../lib/prisma";
+import { addUserExpense, editExpense } from "../services/split.service";
+import { SplitType } from "@prisma/client";
+import { auth } from "../lib/auth";
+import { fromNodeHeaders } from "better-auth/node";
 
 export const getCurrentUser = async (req: Request, res: Response) => {
   res.json(req.user);
@@ -16,7 +18,7 @@ export const getBalances = async (req: Request, res: Response) => {
         userId,
       },
       orderBy: {
-        amount: 'desc',
+        amount: "desc",
       },
       include: {
         friend: true,
@@ -25,7 +27,9 @@ export const getBalances = async (req: Request, res: Response) => {
 
     const balances = balancesRaw
       .reduce((acc, current) => {
-        const existing = acc.findIndex((item) => item.friendId === current.friendId);
+        const existing = acc.findIndex(
+          (item) => item.friendId === current.friendId
+        );
         if (existing === -1) {
           acc.push(current);
         } else {
@@ -39,11 +43,11 @@ export const getBalances = async (req: Request, res: Response) => {
           }
         }
         return acc;
-      }, [] as (typeof balancesRaw[number] & { hasMore?: boolean })[])
+      }, [] as ((typeof balancesRaw)[number] & { hasMore?: boolean })[])
       .sort((a, b) => Math.abs(b.amount) - Math.abs(a.amount));
 
     const cumulatedBalances = await prisma.balance.groupBy({
-      by: ['currency'],
+      by: ["currency"],
       _sum: {
         amount: true,
       },
@@ -66,8 +70,8 @@ export const getBalances = async (req: Request, res: Response) => {
 
     res.json({ balances, cumulatedBalances, youOwe, youGet });
   } catch (error) {
-    console.error('Get balances error:', error);
-    res.status(500).json({ error: 'Failed to fetch balances' });
+    console.error("Get balances error:", error);
+    res.status(500).json({ error: "Failed to fetch balances" });
   }
 };
 
@@ -102,7 +106,10 @@ export const getBalances = async (req: Request, res: Response) => {
 //   }
 // };
 
-export const addOrEditExpense = async (req: Request, res: Response): Promise<void> => {
+export const addOrEditExpense = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
   const userId = req.user!.id;
   const {
     paidBy,
@@ -129,8 +136,10 @@ export const addOrEditExpense = async (req: Request, res: Response): Promise<voi
       });
 
       if (!expenseParticipant) {
-        res.status(403).json({ error: 'You are not a participant of this expense' });
-        return 
+        res
+          .status(403)
+          .json({ error: "You are not a participant of this expense" });
+        return;
       }
     }
 
@@ -146,7 +155,7 @@ export const addOrEditExpense = async (req: Request, res: Response): Promise<voi
           participants,
           userId,
           expenseDate ?? new Date(),
-          fileKey,
+          fileKey
         )
       : await addUserExpense(
           paidBy,
@@ -158,13 +167,13 @@ export const addOrEditExpense = async (req: Request, res: Response): Promise<voi
           participants,
           userId,
           expenseDate ?? new Date(),
-          fileKey,
+          fileKey
         );
 
     res.json(expense);
   } catch (error) {
-    console.error('Add/Edit expense error:', error);
-    res.status(500).json({ error: 'Failed to create/edit expense' });
+    console.error("Add/Edit expense error:", error);
+    res.status(500).json({ error: "Failed to create/edit expense" });
   }
 };
 
@@ -200,7 +209,7 @@ export const getExpensesWithFriend = async (req: Request, res: Response) => {
         ],
       },
       orderBy: {
-        expenseDate: 'desc',
+        expenseDate: "desc",
       },
       include: {
         expenseParticipants: {
@@ -220,14 +229,14 @@ export const getExpensesWithFriend = async (req: Request, res: Response) => {
 
     res.json(expenses);
   } catch (error) {
-    console.error('Get expenses with friend error:', error);
-    res.status(500).json({ error: 'Failed to fetch expenses' });
+    console.error("Get expenses with friend error:", error);
+    res.status(500).json({ error: "Failed to fetch expenses" });
   }
 };
 
 export const updateUserDetails = async (req: Request, res: Response) => {
   const userId = req.user!.id;
-  const { name, currency } = req.body;
+  const { name, currency, stellarAccount, image } = req.body;
 
   try {
     const user = await prisma.user.update({
@@ -237,46 +246,58 @@ export const updateUserDetails = async (req: Request, res: Response) => {
       data: {
         ...(name && { name }),
         ...(currency && { currency }),
+        ...(stellarAccount && { stellarAccount }),
+        ...(image && { image }),
       },
     });
 
+    const a = await auth.api.getSession({
+      query: {
+        disableCookieCache: true,
+      },
+      headers: fromNodeHeaders(req.headers),
+    });
+
+    console.log(a);
+
     res.json(user);
   } catch (error) {
-    console.error('Update user details error:', error);
-    res.status(500).json({ error: 'Failed to update user details' });
+    console.error("Update user details error:", error);
+    res.status(500).json({ error: "Failed to update user details" });
   }
 };
 
-
-export const inviteFriend = async (req: Request, res: Response): Promise<void> => {
+export const inviteFriend = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
   const { email } = req.body;
   const userId = req.user!.id;
-  
 
   try {
     const friend = await prisma.user.findUnique({
-    where: {
+      where: {
         email,
       },
     });
 
     if (friend) {
       res.json(friend);
-      return 
+      return;
     }
 
     const user = await prisma.user.create({
       data: {
         email,
-        name: email.split('@')[0],
+        name: email.split("@")[0],
         emailVerified: false,
       },
     });
 
     res.json(user);
   } catch (error) {
-    console.error('Invite friend error:', error);
-    res.status(500).json({ error: 'Failed to invite friend' });
+    console.error("Invite friend error:", error);
+    res.status(500).json({ error: "Failed to invite friend" });
   }
 };
 
@@ -287,66 +308,67 @@ export const addFriend = async (req: Request, res: Response): Promise<void> => {
   try {
     const friend = await prisma.user.findFirst({
       where: {
-        OR: [
-        { email: friendIdentifier },
-        { name: friendIdentifier }
-      ]
+        OR: [{ email: friendIdentifier }, { name: friendIdentifier }],
+      },
+    });
+
+    if (!friend) {
+      res.status(404).json({ message: "Friend not found", status: "error" });
+      return;
     }
-  });
+    if (friend.id === userId) {
+      res
+        .status(400)
+        .json({ message: "Cannot add yourself as friend", status: "error" });
+      return;
+    }
 
-  if (!friend) {
-    res.status(404).json({ message: 'Friend not found', status: 'error' });
-    return;
-  }
-  if (friend.id === userId) {
-    res.status(400).json({ message: 'Cannot add yourself as friend', status: 'error' });
-    return;
-  }
+    await prisma.$transaction([
+      prisma.friendship.create({
+        data: {
+          userId: userId,
+          friendId: friend.id,
+        },
+      }),
+      prisma.friendship.create({
+        data: {
+          userId: friend.id,
+          friendId: userId,
+        },
+      }),
+    ]);
 
-  await prisma.$transaction([
-    prisma.friendship.create({
-      data: {
-        userId: userId,
-        friendId: friend.id,
-      }
-    }),
-    prisma.friendship.create({
-      data: {
-        userId: friend.id,
-        friendId: userId,
-      }
-    })
-  ]);
-
-  res.json({ message: 'Friend added successfully', status: 'success' });
-} catch (error) {
-  console.error('Add friend error:', error);
-  res.status(500).json({ error: 'Failed to add friend' });
+    res.json({ message: "Friend added successfully", status: "success" });
+  } catch (error) {
+    console.error("Add friend error:", error);
+    res.status(500).json({ error: "Failed to add friend" });
   }
 };
 
-export const getFriends = async (req: Request, res: Response): Promise<void> => {
+export const getFriends = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
   const userId = req.user!.id;
 
   try {
     const friends = await prisma.friendship.findMany({
       where: { userId },
       include: {
-      friend: {
-        select: {
-          id: true,
-          name: true,
-          email: true,
-          image: true
-        }
-      }
-    }
-  });
+        friend: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            image: true,
+          },
+        },
+      },
+    });
 
     res.json(friends);
   } catch (error) {
-    console.error('Get friends error:', error);
-    res.status(500).json({ error: 'Failed to fetch friends' });
+    console.error("Get friends error:", error);
+    res.status(500).json({ error: "Failed to fetch friends" });
   }
 };
-

@@ -46,7 +46,7 @@ export const createGroup = async (req: Request, res: Response) => {
         userId,
         description,
         image: imageUrl,
-        // contractGroupId: groupId,
+        contractGroupId: groupId,
         defaultCurrency: currency,
         groupUsers: {
           create: {

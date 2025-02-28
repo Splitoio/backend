@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from "express";
 import { prisma } from "../lib/prisma";
 import { fromNodeHeaders } from "better-auth/node";
 import { auth } from "../lib/auth";
+import { setCookieCache } from "better-auth/*";
 
 export const getSession = async (
   req: Request,
@@ -17,8 +18,6 @@ export const getSession = async (
 
     return;
   }
-
-  console.log(session);
 
   const user = await prisma.user.findUnique({
     where: { id: session.user.id },
