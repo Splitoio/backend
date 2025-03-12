@@ -1,9 +1,14 @@
 import { Request, Response } from "express";
 import { prisma } from "../lib/prisma";
-import { createGroupExpense, editExpense } from "../services/split.service";
+import {
+  createGroupExpense,
+  editExpense,
+  joinGroup as addMemberById,
+} from "../services/split.service";
 import { SplitType } from "@prisma/client";
 import { z } from "zod";
 import contactManager from "../contracts/utils";
+import { createSplitInfo } from "../contracts/stellarClient";
 
 export const createGroup = async (req: Request, res: Response) => {
   try {
@@ -65,6 +70,13 @@ export const createGroup = async (req: Request, res: Response) => {
 
 export const getAllGroups = async (req: Request, res: Response) => {
   const userId = req.user!.id;
+
+  const stellarAccount = req.user!.stellarAccount;
+
+  if (!stellarAccount) {
+    res.json([]);
+    return;
+  }
 
   try {
     const groups = await prisma.groupUser.findMany({
@@ -133,7 +145,26 @@ export const getGroupById = async (req: Request, res: Response) => {
       return;
     }
 
-    res.json(group);
+    const members = group.groupUsers.map((user) => user.user);
+
+    const balances = await Promise.all(
+      members.map(async (member) => {
+        const balance = await contactManager.getGroupMemberBalances(
+          group.contractGroupId,
+          member.stellarAccount ?? ""
+        );
+        return {
+          ...member,
+          balance,
+        };
+      })
+    );
+
+    console.log("balances", balances);
+    res.json({
+      ...group,
+      balances,
+    });
   } catch (error) {
     console.error("Get group error:", error);
     res.status(500).json({ error: "Failed to fetch group" });
@@ -217,6 +248,49 @@ export const joinGroup = async (req: Request, res: Response): Promise<void> => {
   } catch (error) {
     console.error("Join group error:", error);
     res.status(500).json({ error: "Failed to join group" });
+  }
+};
+
+export const addExpense = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  const { groupId } = req.params;
+
+  const { amount, members, shares, description } = req.body;
+
+  try {
+    const group = await prisma.group.findUnique({
+      where: {
+        id: groupId,
+      },
+      select: {
+        contractGroupId: true,
+      },
+    });
+
+    const contractGroupId = group?.contractGroupId;
+    const payer = req.user!.stellarAccount!;
+
+    if (!contractGroupId) {
+      res.status(400).json({ error: "Group has no contract group id" });
+      return;
+    }
+
+    const splitInfo = createSplitInfo(members, shares);
+
+    const expense = await contactManager.addExpense(
+      contractGroupId,
+      amount,
+      splitInfo,
+      description,
+      payer
+    );
+
+    res.json(expense);
+  } catch (error) {
+    console.error("Add/Edit expense error:", error);
+    res.status(500).json({ error: "Failed to create/edit expense" });
   }
 };
 
@@ -360,12 +434,35 @@ export const addMemberToGroup = async (
       member.stellarAccount
     );
 
+    await addMemberById(member.id, groupId);
+
     res.json({
       success: true,
       message: "Added to group successfully",
     });
   } catch (error) {
-    console.error("Add/Edit expense error:", error);
-    res.status(500).json({ error: "Failed to create/edit expense" });
+    console.error("Unable to add member to group:", error);
+    res.status(500).json({ error: "Failed to add member to group" });
   }
+};
+
+export const getGroupExpenses = async (req: Request, res: Response) => {
+  const { groupId } = req.params;
+  const group = await prisma.group.findUnique({
+    where: {
+      id: groupId,
+    },
+    select: {
+      contractGroupId: true,
+    },
+  });
+
+  if (!group) {
+    res.status(404).json({ error: "Group not found" });
+    return;
+  }
+
+  const contractGroupId = group.contractGroupId;
+  const expenses = await contactManager.getGroupExpenses(contractGroupId);
+  res.json(expenses);
 };

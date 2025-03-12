@@ -11,6 +11,16 @@ import { errorHandler } from "./middleware/errorHandler";
 import { fromNodeHeaders, toNodeHandler } from "better-auth/node";
 import { auth } from "./lib/auth";
 
+declare global {
+  interface BigInt {
+    toJSON(): string;
+  }
+}
+
+BigInt.prototype.toJSON = function () {
+  return this.toString();
+};
+
 const app = express();
 
 // Move CORS before all routes

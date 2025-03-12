@@ -121,6 +121,8 @@ model Group {
   groupUsers    GroupUser[]
   expenses      Expense[]
   groupBalances GroupBalance[]
+
+  @@index([contractGroupId])
 }
 
 model GroupUser {
