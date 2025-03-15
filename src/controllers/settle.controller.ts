@@ -160,6 +160,8 @@ export const settleDebtCreateTransaction = async (
   const { groupId, address, settleWithId } = result.data;
   const userId = req.user!.id;
 
+  console.log("req.body", req.body);
+
   try {
     const balances = await prisma.groupBalance.findMany({
       where: {
@@ -177,6 +179,8 @@ export const settleDebtCreateTransaction = async (
         },
       },
     });
+
+    console.log("balances", balances);
 
     const toPay = balances.filter((balance) => balance.amount > 0);
 
