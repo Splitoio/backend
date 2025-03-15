@@ -13,8 +13,9 @@ import {
 
 import {
   settleWithEveryone,
-  settleWithEveryoneSubmit,
+  settleDebtSubmitTransaction,
   settleWithOne,
+  settleDebtCreateTransaction,
 } from "../controllers/settle.controller";
 
 const router = express.Router();
@@ -29,7 +30,7 @@ router.get("/:groupId", getGroupById);
 router.post("/:groupId/expenses", addOrEditExpense);
 router.post("/addMember", addMemberToGroup);
 router.post("/settleWithOne", settleWithOne);
-router.post("/settleWithEveryone", settleWithEveryone);
-router.post("/settleWithEveryone/submit", settleWithEveryoneSubmit);
+router.post("/settle-expense/create", settleDebtCreateTransaction);
+router.post("/settle-expense/submit", settleDebtSubmitTransaction);
 
 export const groupRouter = router;

@@ -10,6 +10,7 @@ import {
 import { Request, Response } from "express";
 import { prisma } from "../lib/prisma";
 import { updateGroupBalanceForParticipants } from "../services/split.service";
+import { z } from "zod";
 
 const server = new Horizon.Server("https://horizon-testnet.stellar.org");
 
@@ -139,21 +140,85 @@ export const settleWithEveryone = async (req: Request, res: Response) => {
   }
 };
 
-export const settleWithEveryoneSubmit = async (req: Request, res: Response) => {
-  const { signedTx, groupId } = req.body;
+const settleDebtSchemaCreate = z.object({
+  groupId: z.string().min(1, "Group id is required"),
+  settleWithId: z.string().optional(),
+  address: z.string().min(1, "Address is required"),
+});
+
+export const settleDebtCreateTransaction = async (
+  req: Request,
+  res: Response
+) => {
+  const result = settleDebtSchemaCreate.safeParse(req.body);
+
+  if (!result.success) {
+    res.status(400).json({ error: result.error.issues });
+    return;
+  }
+
+  const { groupId, address, settleWithId } = result.data;
   const userId = req.user!.id;
 
-  console.log("signedTx", signedTx);
+  try {
+    const balances = await prisma.groupBalance.findMany({
+      where: {
+        AND: [
+          { userId: userId },
+          { groupId: groupId },
+          ...(settleWithId ? [{ firendId: settleWithId }] : []),
+        ],
+      },
+      include: {
+        friend: {
+          select: {
+            stellarAccount: true,
+          },
+        },
+      },
+    });
 
-  if (!signedTx) {
-    res.status(400).json({ error: "No transaction to submit" });
+    const toPay = balances.filter((balance) => balance.amount > 0);
+
+    if (toPay.length === 0) {
+      res.status(400).json({ error: "No balances to pay" });
+      return;
+    }
+
+    const transaction = await createTransaction(
+      address,
+      toPay.map((balance) => ({
+        address: balance.friend.stellarAccount!,
+        amount: balance.amount.toString(),
+      }))
+    );
+
+    res.json(transaction);
+  } catch (error) {
+    console.error("Get group error:", error);
+    res.status(500).json({ error: "Failed to fetch group" });
+  }
+};
+
+const settleDebtSchemaSubmit = z.object({
+  groupId: z.string().min(1, "Group id is required"),
+  signedTx: z.string().min(1, "signedTx is required"),
+  settleWithId: z.string().optional(),
+});
+
+export const settleDebtSubmitTransaction = async (
+  req: Request,
+  res: Response
+) => {
+  const result = settleDebtSchemaSubmit.safeParse(req.body);
+
+  if (!result.success) {
+    res.status(400).json({ error: result.error.issues });
     return;
   }
 
-  if (!groupId) {
-    res.status(400).json({ error: "No group id" });
-    return;
-  }
+  const { signedTx, groupId, settleWithId } = result.data;
+  const userId = req.user!.id;
 
   try {
     const submitTransactionResponse = await submitTransaction(signedTx);
@@ -165,7 +230,11 @@ export const settleWithEveryoneSubmit = async (req: Request, res: Response) => {
 
     const balances = await prisma.groupBalance.findMany({
       where: {
-        AND: [{ userId: userId }, { groupId: groupId }],
+        AND: [
+          { userId: userId },
+          { groupId: groupId },
+          ...(settleWithId ? [{ firendId: settleWithId }] : []),
+        ],
       },
     });
 
@@ -175,13 +244,7 @@ export const settleWithEveryoneSubmit = async (req: Request, res: Response) => {
       currency: balance.currency,
     }));
 
-    console.log("participants", participants);
-
-    const result = await updateGroupBalanceForParticipants(
-      participants,
-      userId,
-      groupId
-    );
+    await updateGroupBalanceForParticipants(participants, userId, groupId);
 
     res.json(submitTransactionResponse.hash);
   } catch (error: any) {
