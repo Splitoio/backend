@@ -8,6 +8,135 @@ type Participant = {
   amount: number;
 };
 
+type ParticipantWithCurrency = {
+  userId: string;
+  amount: number;
+  currency: string;
+};
+
+export const updateGroupBalanceForParticipants = async (
+  participants: ParticipantWithCurrency[],
+  paidBy: string,
+  groupId: string
+) => {
+  const operations: any[] = [];
+
+  participants.forEach((participant) => {
+    if (participant.userId === paidBy) {
+      return;
+    }
+
+    operations.push(
+      prisma.groupBalance.upsert({
+        where: {
+          groupId_currency_firendId_userId: {
+            groupId,
+            currency: participant.currency,
+            userId: paidBy,
+            firendId: participant.userId,
+          },
+        },
+        update: {
+          amount: {
+            increment: -toInteger(participant.amount),
+          },
+        },
+        create: {
+          groupId,
+          currency: participant.currency,
+          userId: paidBy,
+          firendId: participant.userId,
+          amount: -toInteger(participant.amount),
+        },
+      })
+    );
+
+    // Update balance where payer owes to the participant (opposite balance)
+    operations.push(
+      prisma.groupBalance.upsert({
+        where: {
+          groupId_currency_firendId_userId: {
+            groupId,
+            currency: participant.currency,
+            firendId: paidBy,
+            userId: participant.userId,
+          },
+        },
+        update: {
+          amount: {
+            increment: toInteger(participant.amount),
+          },
+        },
+        create: {
+          groupId,
+          currency: participant.currency,
+          userId: participant.userId,
+          firendId: paidBy,
+          amount: toInteger(participant.amount), // Negative because it's the opposite balance
+        },
+      })
+    );
+
+    // Update payer's balance towards the participant
+    operations.push(
+      prisma.balance.upsert({
+        where: {
+          userId_currency_friendId: {
+            userId: paidBy,
+            currency: participant.currency,
+            friendId: participant.userId,
+          },
+        },
+        update: {
+          amount: {
+            increment: -toInteger(participant.amount),
+          },
+        },
+        create: {
+          userId: paidBy,
+          currency: participant.currency,
+          friendId: participant.userId,
+          amount: -toInteger(participant.amount),
+        },
+      })
+    );
+
+    // Update participant's balance towards the payer
+    operations.push(
+      prisma.balance.upsert({
+        where: {
+          userId_currency_friendId: {
+            userId: participant.userId,
+            currency: participant.currency,
+            friendId: paidBy,
+          },
+        },
+        update: {
+          amount: {
+            increment: toInteger(participant.amount),
+          },
+        },
+        create: {
+          userId: participant.userId,
+          currency: participant.currency,
+          friendId: paidBy,
+          amount: toInteger(participant.amount), // Negative because it's the opposite balance
+        },
+      })
+    );
+  });
+
+  // Execute all operations in a transaction
+  const result = await prisma.$transaction(operations);
+  await updateGroupExpenseForIfBalanceIsZero(
+    paidBy,
+    participants.map((p) => p.userId),
+    participants[0].currency
+  );
+
+  return result;
+};
+
 export const createGroupExpense = async (
   groupId: string,
   paidBy: string,

@@ -1,6 +1,10 @@
 import { Request, Response } from "express";
 import { prisma } from "../lib/prisma";
-import { createGroupExpense, editExpense } from "../services/split.service";
+import {
+  createGroupExpense,
+  editExpense,
+  joinGroup as addMemberById,
+} from "../services/split.service";
 import { SplitType } from "@prisma/client";
 import { z } from "zod";
 import contactManager from "../contracts/utils";
@@ -35,9 +39,9 @@ export const createGroup = async (req: Request, res: Response) => {
       return;
     }
 
-    // const groupId = Math.floor(Math.random() * 1000000000); // 9 digit random int
+    const groupId = Math.floor(Math.random() * 1000000000); // 9 digit random int
 
-    const groupId = await contactManager.createGroup([user.stellarAccount]);
+    // const groupId = await contactManager.createGroup([user.stellarAccount]);
 
     const userId = req.user!.id;
 
@@ -227,7 +231,7 @@ export const addOrEditExpense = async (
   const { groupId } = req.params;
   const userId = req.user!.id;
   const {
-    paidBy,
+    // paidBy,
     name,
     category,
     amount,
@@ -238,6 +242,8 @@ export const addOrEditExpense = async (
     expenseDate,
     expenseId,
   } = req.body;
+
+  const paidBy = userId;
 
   try {
     if (expenseId) {
@@ -299,6 +305,7 @@ export const addMemberToGroup = async (
 ): Promise<void> => {
   const { memberIdentifier, groupId } = req.body;
   const userStellarAccount = req.user!.stellarAccount!;
+  const userId = req.user!.id;
 
   try {
     const group = await prisma.group.findUnique({
@@ -307,6 +314,11 @@ export const addMemberToGroup = async (
       },
       select: {
         contractGroupId: true,
+        groupUsers: {
+          select: {
+            userId: true,
+          },
+        },
       },
     });
 
@@ -315,7 +327,7 @@ export const addMemberToGroup = async (
       return;
     }
 
-    const contractGroupId = group.contractGroupId;
+    // const contractGroupId = group.contractGroupId;
 
     const member = await prisma.user.findFirst({
       where: {
@@ -335,11 +347,9 @@ export const addMemberToGroup = async (
       return;
     }
 
-    const members: string[] = await contactManager.getGroupMembers(
-      contractGroupId
-    );
+    const members = group.groupUsers.map((user) => user.userId);
 
-    if (!members.includes(userStellarAccount)) {
+    if (!members.includes(userId)) {
       res.status(400).json({
         message: "You are not a member of this group",
         status: "error",
@@ -347,7 +357,7 @@ export const addMemberToGroup = async (
       return;
     }
 
-    if (members.includes(member.stellarAccount)) {
+    if (members.includes(member.id)) {
       res.status(400).json({
         message: "User is already a member of this group",
         status: "error",
@@ -355,10 +365,7 @@ export const addMemberToGroup = async (
       return;
     }
 
-    await contactManager.addMemberToGroup(
-      contractGroupId,
-      member.stellarAccount
-    );
+    await addMemberById(member.id, groupId);
 
     res.json({
       success: true,
