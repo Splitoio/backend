@@ -21,13 +21,14 @@ export const auth = betterAuth({
   },
   secret: process.env.SESSION_SECRET,
   trustedOrigins: ["http://localhost:3000", env.FRONTEND_URL],
-  advanced: {
-    defaultCookieAttributes: {
-      secure: true,
-      httpOnly: true,
-      sameSite: "none", // Allows CORS-based cookie sharing across subdomains
-    },
-  },
+  // advanced: {
+  //   defaultCookieAttributes: {
+  //     secure: true,
+  //     httpOnly: true,
+
+  //     sameSite: "", // Allows CORS-based cookie sharing across subdomains
+  //   },
+  // },
   session: {
     cookieCache: {
       enabled: true,
