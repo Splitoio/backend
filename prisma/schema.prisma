@@ -96,7 +96,7 @@ model Balance {
   userId                String
   currency              String
   friendId              String
-  amount                Int
+  amount                Float
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
   importedFromSplitwise Boolean  @default(false)
@@ -137,7 +137,7 @@ model GroupBalance {
   currency  String
   userId    String
   firendId  String
-  amount    Int
+  amount    Float
   updatedAt DateTime @updatedAt
   group     Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
   user      User     @relation(name: "GroupUserBalance", fields: [userId], references: [id], onDelete: Cascade)
@@ -161,7 +161,7 @@ model Expense {
   addedBy             String
   name                String
   category            String
-  amount              Int
+  amount              Float
   splitType           SplitType            @default(EQUAL)
   expenseDate         DateTime             @default(now())
   createdAt           DateTime             @default(now())
@@ -187,7 +187,7 @@ model Expense {
 model ExpenseParticipant {
   expenseId String
   userId    String
-  amount    Int
+  amount    Float
   user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
   expense   Expense @relation(fields: [expenseId], references: [id], onDelete: Cascade)
 

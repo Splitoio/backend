@@ -9,7 +9,7 @@ export const GroupBalanceSchema = z.object({
   currency: z.string(),
   userId: z.string(),
   firendId: z.string(),
-  amount: z.number().int(),
+  amount: z.number(),
   updatedAt: z.coerce.date(),
 })
 

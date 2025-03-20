@@ -8,7 +8,7 @@ export const BalanceSchema = z.object({
   userId: z.string(),
   currency: z.string(),
   friendId: z.string(),
-  amount: z.number().int(),
+  amount: z.number(),
   createdAt: z.coerce.date(),
   updatedAt: z.coerce.date(),
   importedFromSplitwise: z.boolean(),

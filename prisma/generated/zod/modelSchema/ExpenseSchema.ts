@@ -12,7 +12,7 @@ export const ExpenseSchema = z.object({
   addedBy: z.string(),
   name: z.string(),
   category: z.string(),
-  amount: z.number().int(),
+  amount: z.number(),
   expenseDate: z.coerce.date(),
   createdAt: z.coerce.date(),
   updatedAt: z.coerce.date(),
