@@ -25,6 +25,7 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "@google-cloud/storage": "^7.15.2",
     "@prisma/client": "^6.2.1",
     "@stellar/stellar-sdk": "^13.1.0",
     "axios": "^1.7.9",
@@ -41,6 +42,7 @@
     "prisma": "^6.2.1",
     "swagger-jsdoc": "^6.2.8",
     "swagger-ui-express": "^5.0.1",
+    "uuid": "^11.1.0",
     "zod": "^3.24.2",
     "zod-prisma-types": "^3.2.4"
   },

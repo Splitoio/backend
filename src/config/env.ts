@@ -15,6 +15,9 @@ const envSchema = z.object({
   BACKEND_URL: z.string(),
   FRONTEND_URL: z.string(),
   SECRET_KEY: z.string(),
+  GOOGLE_CLOUD_PROJECT_ID: z.string().optional(),
+  GOOGLE_CLOUD_CREDENTIALS: z.string().optional(),
+  GOOGLE_CLOUD_BUCKET_NAME: z.string().optional(),
 });
 
 export const env = envSchema.parse(process.env);

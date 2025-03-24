@@ -5,6 +5,7 @@ import morgan from "morgan";
 import { env } from "./config/env";
 import { userRouter } from "./routes/user.routes";
 import { groupRouter } from "./routes/group.routes";
+import { fileRouter } from "./routes/file.routes";
 // import { authRouter } from './routes/auth.routes';
 import { errorHandler } from "./middleware/errorHandler";
 
@@ -41,6 +42,7 @@ app.get("/api/me", async (req, res) => {
 // app.use('/api/auth', authRouter);
 app.use("/api/users", userRouter);
 app.use("/api/groups", groupRouter);
+app.use("/api/files", fileRouter);
 
 app.use(errorHandler);
 
