@@ -9,6 +9,7 @@ import {
   addOrEditExpense,
   getGroupById,
   addMemberToGroup,
+  deleteGroup,
 } from "../controllers/group.controller";
 
 import {
@@ -29,5 +30,6 @@ router.post("/:groupId/expenses", addOrEditExpense);
 router.post("/addMember", addMemberToGroup);
 router.post("/settle-expense/create", settleDebtCreateTransaction);
 router.post("/settle-expense/submit", settleDebtSubmitTransaction);
+router.delete("/:groupId/delete", deleteGroup);
 
 export const groupRouter = router;

@@ -8,6 +8,7 @@ import {
 import { SplitType } from "@prisma/client";
 import { auth } from "../lib/auth";
 import { fromNodeHeaders } from "better-auth/node";
+import { checkAccountExists } from "../utils/stellar";
 
 export const getCurrentUser = async (req: Request, res: Response) => {
   res.json(req.user);
@@ -241,6 +242,14 @@ export const getExpensesWithFriend = async (req: Request, res: Response) => {
 export const updateUserDetails = async (req: Request, res: Response) => {
   const userId = req.user!.id;
   const { name, currency, stellarAccount, image } = req.body;
+
+  if (stellarAccount) {
+    const accountExists = await checkAccountExists(stellarAccount);
+    if (!accountExists) {
+      res.status(400).json({ error: "Invalid Stellar account" });
+      return;
+    }
+  }
 
   try {
     const user = await prisma.user.update({

@@ -14,6 +14,7 @@ const envSchema = z.object({
   SESSION_SECRET: z.string(),
   BACKEND_URL: z.string(),
   FRONTEND_URL: z.string(),
+  SECRET_KEY: z.string(),
 });
 
 export const env = envSchema.parse(process.env);

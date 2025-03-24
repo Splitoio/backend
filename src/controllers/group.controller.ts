@@ -375,3 +375,50 @@ export const addMemberToGroup = async (
     res.status(500).json({ error: "Failed to create/edit expense" });
   }
 };
+
+export const deleteGroup = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  const { groupId } = req.params;
+  const userId = req.user!.id;
+
+  try {
+    const group = await prisma.group.findUnique({
+      where: {
+        id: groupId,
+      },
+      include: {
+        groupBalances: true,
+      },
+    });
+
+    if (group?.userId !== userId) {
+      res.status(403).json({ error: "Only creator can delete the group" });
+      return;
+    }
+
+    const balanceWithNonZero = group?.groupBalances.find((b) => b.amount !== 0);
+
+    if (balanceWithNonZero) {
+      res.status(400).json({
+        error: "You have a non-zero balance in this group",
+      });
+      return;
+    }
+
+    await prisma.group.delete({
+      where: {
+        id: groupId,
+      },
+    });
+
+    res.json({
+      success: true,
+      message: "Group deleted successfully",
+    });
+  } catch (error) {
+    console.error("Delete group error:", error);
+    res.status(500).json({ error: "Failed to delete group" });
+  }
+};

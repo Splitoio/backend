@@ -1,80 +1,13 @@
-import {
-  TransactionBuilder,
-  Networks,
-  Operation,
-  Asset,
-  Horizon,
-  Transaction,
-  Keypair,
-} from "@stellar/stellar-sdk";
 import { Request, Response } from "express";
 import { prisma } from "../lib/prisma";
 import { updateGroupBalanceForParticipants } from "../services/split.service";
 import { z } from "zod";
-
-const server = new Horizon.Server("https://horizon-testnet.stellar.org");
-
-const checkAccountExists = async (publicKey: string) => {
-  try {
-    await server.loadAccount(publicKey);
-    console.log("✅ Account exists.");
-  } catch (error) {
-    console.log("❌ Account does not exist.");
-  }
-};
-
-const checkBalance = async (accountId: string) => {
-  const account = await server.loadAccount(accountId);
-  console.log("Balances: ", account.balances);
-};
-
-export const createTransaction = async (
-  sourcePublicKey: string,
-  transactions: { address: string; amount: string }[]
-) => {
-  const account = await server.loadAccount(sourcePublicKey);
-
-  const fee = await server.fetchBaseFee();
-
-  const transaction = new TransactionBuilder(account, {
-    fee: fee.toString(),
-    networkPassphrase: Networks.TESTNET,
-  });
-
-  transactions.forEach((t) => {
-    transaction.addOperation(
-      Operation.payment({
-        destination: t.address,
-        asset: Asset.native(),
-        amount: t.amount,
-      })
-    );
-  });
-
-  const serializedTransaction = transaction.setTimeout(60).build().toXDR();
-
-  return serializedTransaction;
-};
-
-const submitTransaction = async (signedTx: string) => {
-  const gasPayerKeypair = Keypair.fromSecret(process.env.SECRET_KEY!);
-
-  const BASE_FEE = await server.fetchBaseFee();
-
-  const transaction = new Transaction(signedTx, Networks.TESTNET);
-
-  const feeBumpTx = TransactionBuilder.buildFeeBumpTransaction(
-    gasPayerKeypair,
-    BASE_FEE.toString(), // Higher fee if needed
-    transaction,
-    Networks.TESTNET
-  );
-
-  feeBumpTx.sign(gasPayerKeypair);
-
-  const response = await server.submitTransaction(feeBumpTx);
-  return response;
-};
+import {
+  checkAccountBalance,
+  convertUsdToXLM,
+  createSerializedTransaction,
+  submitTransaction,
+} from "../utils/stellar";
 
 const settleDebtSchemaCreate = z.object({
   groupId: z.string().min(1, "Group id is required"),
@@ -135,11 +68,43 @@ export const settleDebtCreateTransaction = async (
       }
     });
 
-    const transaction = await createTransaction(
+    const ToPayInXLM = await Promise.all(
+      toPay.map(async (balance) => {
+        let amount: number = 0;
+        if (balance.currency === "USD") {
+          amount = await convertUsdToXLM(balance.amount);
+        } else {
+          amount = Number(balance.amount);
+        }
+        return {
+          address: balance.friend.stellarAccount!,
+          amount: amount.toString(),
+        };
+      })
+    );
+
+    const totalAmount = toPay.reduce(
+      (acc, balance) => acc + Number(balance.amount),
+      0
+    );
+
+    const accountBalance = await checkAccountBalance(address);
+
+    const XLM_BALANCE = Number(
+      accountBalance.find((balance) => balance.asset_type === "native")
+        ?.balance || 0
+    );
+
+    if (XLM_BALANCE < totalAmount) {
+      res.status(400).json({ error: "Insufficient balance" });
+      return;
+    }
+
+    const transaction = await createSerializedTransaction(
       address,
-      toPay.map((balance) => ({
-        address: balance.friend.stellarAccount!,
-        amount: balance.amount.toString(),
+      ToPayInXLM.map((balance) => ({
+        address: balance.address,
+        amount: balance.amount,
       }))
     );
 
