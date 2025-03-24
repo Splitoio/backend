@@ -16,7 +16,9 @@
     "docker:build": "docker build  --platform linux/amd64 -t splito-backend .",
     "docker:run": "docker rm -f splito-backend || true && docker run --name splito-backend -p 4000:4000 --env-file .env splito-backend",
     "docker:push": "docker tag splito-backend gcr.io/miraya-447801/splito-service && docker push gcr.io/miraya-447801/splito-service",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "localdb:up": "docker-compose up -d",
+    "localdb:down": "docker-compose down"
   },
   "keywords": [],
   "author": "",
@@ -37,6 +39,8 @@
     "morgan": "^1.10.0",
     "nanoid": "^5.0.9",
     "prisma": "^6.2.1",
+    "swagger-jsdoc": "^6.2.8",
+    "swagger-ui-express": "^5.0.1",
     "zod": "^3.24.2",
     "zod-prisma-types": "^3.2.4"
   },
@@ -47,6 +51,8 @@
     "@types/jsonwebtoken": "^9.0.7",
     "@types/morgan": "^1.9.9",
     "@types/node": "^22.10.5",
+    "@types/swagger-jsdoc": "^6.0.4",
+    "@types/swagger-ui-express": "^4.1.8",
     "nodemon": "^3.1.9",
     "ts-node": "^10.9.2",
     "typescript": "^5.7.3"
