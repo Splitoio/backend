@@ -12,9 +12,7 @@ import {
 } from "../controllers/group.controller";
 
 import {
-  settleWithEveryone,
   settleDebtSubmitTransaction,
-  settleWithOne,
   settleDebtCreateTransaction,
 } from "../controllers/settle.controller";
 
@@ -29,7 +27,6 @@ router.post("/join/:groupId", joinGroup);
 router.get("/:groupId", getGroupById);
 router.post("/:groupId/expenses", addOrEditExpense);
 router.post("/addMember", addMemberToGroup);
-router.post("/settleWithOne", settleWithOne);
 router.post("/settle-expense/create", settleDebtCreateTransaction);
 router.post("/settle-expense/submit", settleDebtSubmitTransaction);
 

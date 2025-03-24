@@ -76,70 +76,6 @@ const submitTransaction = async (signedTx: string) => {
   return response;
 };
 
-export const settleWithOne = async (req: Request, res: Response) => {
-  const { groupId, settleWithId } = req.params;
-  const userId = req.user!.id;
-
-  try {
-    const balance = prisma.groupBalance.findFirst({
-      where: {
-        AND: [
-          { firendId: settleWithId },
-          { userId: userId },
-          { groupId: groupId },
-        ],
-      },
-    });
-
-    console.log("balance", balance);
-
-    res.json(balance);
-  } catch (error) {
-    console.error("Get group error:", error);
-    res.status(500).json({ error: "Failed to fetch group" });
-  }
-};
-
-export const settleWithEveryone = async (req: Request, res: Response) => {
-  const { groupId, address } = req.body;
-  const userId = req.user!.id;
-
-  try {
-    const balances = await prisma.groupBalance.findMany({
-      where: {
-        AND: [{ userId: userId }, { groupId: groupId }],
-      },
-      include: {
-        friend: {
-          select: {
-            stellarAccount: true,
-          },
-        },
-      },
-    });
-
-    const toPay = balances.filter((balance) => balance.amount > 0);
-
-    if (toPay.length === 0) {
-      res.status(400).json({ error: "No balances to pay" });
-      return;
-    }
-
-    const transaction = await createTransaction(
-      address,
-      toPay.map((balance) => ({
-        address: balance.friend.stellarAccount!,
-        amount: balance.amount.toString(),
-      }))
-    );
-
-    res.json(transaction);
-  } catch (error) {
-    console.error("Get group error:", error);
-    res.status(500).json({ error: "Failed to fetch group" });
-  }
-};
-
 const settleDebtSchemaCreate = z.object({
   groupId: z.string().min(1, "Group id is required"),
   settleWithId: z.string().optional(),
@@ -175,6 +111,7 @@ export const settleDebtCreateTransaction = async (
         friend: {
           select: {
             stellarAccount: true,
+            name: true,
           },
         },
       },
@@ -188,6 +125,15 @@ export const settleDebtCreateTransaction = async (
       res.status(400).json({ error: "No balances to pay" });
       return;
     }
+
+    toPay.forEach((balance) => {
+      if (!balance.friend.stellarAccount) {
+        res.status(400).json({
+          error: `Friend ${balance.friend.name} has no Stellar account`,
+        });
+        return;
+      }
+    });
 
     const transaction = await createTransaction(
       address,

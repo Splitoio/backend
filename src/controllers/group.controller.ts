@@ -34,12 +34,12 @@ export const createGroup = async (req: Request, res: Response) => {
       return;
     }
 
-    if (!user.stellarAccount) {
-      res.status(400).json({ error: "User has no stellar account" });
-      return;
-    }
+    // if (!user.stellarAccount) {
+    //   res.status(400).json({ error: "User has no stellar account" });
+    //   return;
+    // }
 
-    const groupId = Math.floor(Math.random() * 1000000000); // 9 digit random int
+    // const groupId = Math.floor(Math.random() * 1000000000); // 9 digit random int
 
     // const groupId = await contactManager.createGroup([user.stellarAccount]);
 
@@ -51,7 +51,7 @@ export const createGroup = async (req: Request, res: Response) => {
         userId,
         description,
         image: imageUrl,
-        contractGroupId: groupId,
+        // contractGroupId: groupId,
         defaultCurrency: currency,
         groupUsers: {
           create: {
@@ -304,7 +304,7 @@ export const addMemberToGroup = async (
   res: Response
 ): Promise<void> => {
   const { memberIdentifier, groupId } = req.body;
-  const userStellarAccount = req.user!.stellarAccount!;
+  // const userStellarAccount = req.user!.stellarAccount!;
   const userId = req.user!.id;
 
   try {
@@ -313,7 +313,6 @@ export const addMemberToGroup = async (
         id: groupId,
       },
       select: {
-        contractGroupId: true,
         groupUsers: {
           select: {
             userId: true,
@@ -340,12 +339,12 @@ export const addMemberToGroup = async (
       return;
     }
 
-    if (!member.stellarAccount) {
-      res
-        .status(400)
-        .json({ message: "User has no stellar account", status: "error" });
-      return;
-    }
+    // if (!member.stellarAccount) {
+    //   res
+    //     .status(400)
+    //     .json({ message: "User has no stellar account", status: "error" });
+    //   return;
+    // }
 
     const members = group.groupUsers.map((user) => user.userId);
 
