@@ -7,6 +7,7 @@ import {
   convertUsdToXLM,
   createSerializedTransaction,
   submitTransaction,
+  getTransactionDetails,
 } from "../utils/stellar";
 
 const settleDebtSchemaCreate = z.object({
@@ -59,32 +60,37 @@ export const settleDebtCreateTransaction = async (
       return;
     }
 
-    toPay.forEach((balance) => {
+    // Validate all friends have Stellar accounts
+    for (const balance of toPay) {
       if (!balance.friend.stellarAccount) {
         res.status(400).json({
           error: `Friend ${balance.friend.name} has no Stellar account`,
         });
         return;
       }
-    });
+    }
 
-    const ToPayInXLM = await Promise.all(
+    const toPayInXLM = await Promise.all(
       toPay.map(async (balance) => {
-        let amount: number = 0;
+        let xlmAmount: number = 0;
         if (balance.currency === "USD") {
-          amount = await convertUsdToXLM(balance.amount);
+          xlmAmount = await convertUsdToXLM(balance.amount);
         } else {
-          amount = Number(balance.amount);
+          xlmAmount = Number(balance.amount);
         }
         return {
           address: balance.friend.stellarAccount!,
-          amount: amount.toString(),
+          amount: xlmAmount.toString(),
+          originalAmount: balance.amount,
+          originalCurrency: balance.currency,
+          friendId: balance.firendId,
+          xlmAmount,
         };
       })
     );
 
-    const totalAmount = toPay.reduce(
-      (acc, balance) => acc + Number(balance.amount),
+    const totalAmount = toPayInXLM.reduce(
+      (acc, balance) => acc + Number(balance.xlmAmount),
       0
     );
 
@@ -102,22 +108,47 @@ export const settleDebtCreateTransaction = async (
 
     const transaction = await createSerializedTransaction(
       address,
-      ToPayInXLM.map((balance) => ({
+      toPayInXLM.map((balance) => ({
         address: balance.address,
         amount: balance.amount,
       }))
     );
 
-    res.json(transaction);
+    // Store the transaction details in the database
+    const settlementTransaction = await prisma.settlementTransaction.create({
+      data: {
+        userId: userId,
+        groupId: groupId,
+        serializedTx: transaction.serializedTx,
+        settleWithId: settleWithId,
+        status: "PENDING",
+        settlementItems: {
+          create: toPayInXLM.map((item) => ({
+            userId: userId,
+            friendId: item.friendId,
+            originalAmount: item.originalAmount,
+            originalCurrency: item.originalCurrency,
+            xlmAmount: item.xlmAmount,
+          })),
+        },
+      },
+    });
+
+    res.json({
+      serializedTx: transaction.serializedTx,
+      txHash: transaction.txHash,
+      settlementId: settlementTransaction.id,
+    });
   } catch (error) {
-    console.error("Get group error:", error);
-    res.status(500).json({ error: "Failed to fetch group" });
+    console.error("Create settlement transaction error:", error);
+    res.status(500).json({ error: "Failed to create settlement transaction" });
   }
 };
 
 const settleDebtSchemaSubmit = z.object({
   groupId: z.string().min(1, "Group id is required"),
   signedTx: z.string().min(1, "signedTx is required"),
+  settlementId: z.string().min(1, "settlementId is required"),
   settleWithId: z.string().optional(),
 });
 
@@ -132,43 +163,142 @@ export const settleDebtSubmitTransaction = async (
     return;
   }
 
-  const { signedTx, groupId, settleWithId } = result.data;
+  const { signedTx, groupId, settlementId, settleWithId } = result.data;
   const userId = req.user!.id;
 
   try {
-    const submitTransactionResponse = await submitTransaction(signedTx);
-
-    if (!submitTransactionResponse.successful) {
-      res.status(400).json({ error: "Transaction failed" });
-      return;
-    }
-
-    const balances = await prisma.groupBalance.findMany({
+    // Get the stored settlement transaction
+    const settlementTransaction = await prisma.settlementTransaction.findFirst({
       where: {
-        AND: [
-          { userId: userId },
-          { groupId: groupId },
-          ...(settleWithId ? [{ firendId: settleWithId }] : []),
-        ],
+        id: settlementId,
+        userId: userId,
+        groupId: groupId,
+        settleWithId: settleWithId || null,
+        status: "PENDING",
+      },
+      include: {
+        settlementItems: {
+          include: {
+            friend: {
+              select: {
+                stellarAccount: true,
+              },
+            },
+          },
+        },
       },
     });
 
-    const participants = balances.map((balance) => ({
-      userId: balance.firendId,
-      amount: balance.amount,
-      currency: balance.currency,
+    if (!settlementTransaction) {
+      res.status(404).json({ error: "Settlement transaction not found" });
+      return;
+    }
+
+    // Verify the transaction is the same by comparing transaction details
+    const txDetails = await getTransactionDetails(signedTx);
+
+    // Extract payment operations from the signed transaction
+    const paymentOperations = txDetails.operations.filter(
+      (op: any) => op.type === "payment" && op.asset_type === "native"
+    );
+
+    // Verify each payment in the transaction matches a settlement item
+    let isValid = true;
+
+    // Check that each payment in the transaction matches a settlement item
+    for (const operation of paymentOperations) {
+      const recipient = operation.to;
+      const amount = parseFloat(operation.amount || "0");
+
+      // Find the matching settlement item
+      const matchingItem = settlementTransaction.settlementItems.find(
+        (item) =>
+          item.friend.stellarAccount === recipient &&
+          Math.abs(item.xlmAmount - amount) < 0.00001 // Account for floating point precision
+      );
+
+      if (!matchingItem) {
+        isValid = false;
+        break;
+      }
+    }
+
+    // Also check that every settlement item has a matching payment operation
+    if (
+      isValid &&
+      paymentOperations.length !== settlementTransaction.settlementItems.length
+    ) {
+      isValid = false;
+    }
+
+    if (!isValid) {
+      // Update the settlement status to FAILED
+      await prisma.settlementTransaction.update({
+        where: { id: settlementId },
+        data: { status: "FAILED" },
+      });
+
+      res.status(400).json({
+        error: "The signed transaction does not match the original settlement",
+      });
+      return;
+    }
+
+    // Submit the transaction to the Stellar network
+    const submitTransactionResponse = await submitTransaction(signedTx);
+
+    if (!submitTransactionResponse.successful) {
+      // Update the settlement status to FAILED
+      await prisma.settlementTransaction.update({
+        where: { id: settlementId },
+        data: { status: "FAILED" },
+      });
+
+      res.status(400).json({ error: "Transaction failed on Stellar network" });
+      return;
+    }
+
+    // Update the settlement status to COMPLETED
+    await prisma.settlementTransaction.update({
+      where: { id: settlementId },
+      data: {
+        status: "COMPLETED",
+        completedAt: new Date(),
+        transactionHash: submitTransactionResponse.hash,
+      },
+    });
+
+    // Update group balances based on the settlement items
+    const participants = settlementTransaction.settlementItems.map((item) => ({
+      userId: item.friendId,
+      amount: item.originalAmount,
+      currency: item.originalCurrency,
     }));
 
     await updateGroupBalanceForParticipants(participants, userId, groupId);
 
-    res.json(submitTransactionResponse.hash);
+    res.json({
+      hash: submitTransactionResponse.hash,
+      settlementId: settlementTransaction.id,
+    });
   } catch (error: any) {
     console.error(
-      "Get group error:",
+      "Settlement transaction submission error:",
       error.message,
       error?.response?.data,
       error?.response?.data?.extras
     );
+
+    // Update the settlement status to FAILED if it exists
+    if (settlementId) {
+      await prisma.settlementTransaction
+        .update({
+          where: { id: settlementId },
+          data: { status: "FAILED" },
+        })
+        .catch(() => {}); // Ignore errors in updating status
+    }
+
     res.status(500).json({ error: "Failed to submit transaction" });
   }
 };

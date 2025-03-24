@@ -70,9 +70,59 @@ export const createSerializedTransaction = async (
     );
   });
 
-  const serializedTransaction = transaction.setTimeout(60).build().toXDR();
+  const tx = transaction.setTimeout(60).build();
+  const serializedTx = tx.toXDR();
 
-  return serializedTransaction;
+  return {
+    serializedTx,
+    txHash: tx.hash().toString("hex"),
+  };
+};
+
+export const getTransactionDetails = async (signedTx: string) => {
+  try {
+    const transaction = new Transaction(signedTx, NETWORK);
+
+    // Extract operations
+    const operations = transaction.operations.map((op) => {
+      if (op.type === "payment") {
+        return {
+          type: "payment",
+          to: op.destination,
+          amount: op.amount,
+          asset_type: op.asset.isNative() ? "native" : "credit_alphanum4",
+          asset_code: op.asset.isNative() ? null : op.asset.getCode(),
+          asset_issuer: op.asset.isNative() ? null : op.asset.getIssuer(),
+        };
+      }
+      // For other operation types, return a standard format
+      const baseOp: any = op;
+      return {
+        type: baseOp.type,
+        // Include other properties but avoid duplicating 'type'
+        ...Object.entries(baseOp).reduce((acc, [key, value]) => {
+          if (key !== "type") {
+            acc[key] = value;
+          }
+          return acc;
+        }, {} as Record<string, any>),
+      };
+    });
+
+    return {
+      source: transaction.source,
+      fee: transaction.fee,
+      sequence: transaction.sequence,
+      operations,
+      signatures: transaction.signatures.map((sig) =>
+        sig.signature().toString("base64")
+      ),
+      hash: transaction.hash().toString("hex"),
+    };
+  } catch (error) {
+    console.error("Error decoding transaction:", error);
+    throw new Error("Invalid transaction XDR");
+  }
 };
 
 export async function convertUsdToXLM(amount: number) {

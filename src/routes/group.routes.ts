@@ -28,8 +28,8 @@ router.post("/join/:groupId", joinGroup);
 router.get("/:groupId", getGroupById);
 router.post("/:groupId/expenses", addOrEditExpense);
 router.post("/addMember", addMemberToGroup);
-router.post("/settle-expense/create", settleDebtCreateTransaction);
-router.post("/settle-expense/submit", settleDebtSubmitTransaction);
+router.post("/settle-transaction/create", settleDebtCreateTransaction);
+router.post("/settle-transaction/submit", settleDebtSubmitTransaction);
 router.delete("/:groupId/delete", deleteGroup);
 
 export const groupRouter = router;

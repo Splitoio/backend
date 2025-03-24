@@ -55,31 +55,35 @@ model Session {
 }
 
 model User {
-  id                  String               @id @default(cuid())
-  name                String?
-  email               String?              @unique
-  emailVerified       Boolean
-  image               String?
-  currency            String               @default("USD")
-  stellarAccount      String?
-  accounts            Account[]
-  sessions            Session[]
-  groups              Group[]
-  associatedGroups    GroupUser[]
-  expenseParticipants ExpenseParticipant[]
-  expenseNotes        ExpenseNote[]
-  userBalances        Balance[]            @relation("UserBalance")
-  friendBalances      Balance[]            @relation("FriendBalance")
-  groupUserBalances   GroupBalance[]       @relation("GroupUserBalance")
-  groupFriendBalances GroupBalance[]       @relation("GroupFriendBalance")
-  paidExpenses        Expense[]            @relation("PaidByUser")
-  addedExpenses       Expense[]            @relation("AddedByUser")
-  deletedExpenses     Expense[]            @relation("DeletedByUser")
-  updatedExpenses     Expense[]            @relation("UpdatedByUser")
-  createdAt           DateTime             @default(now())
-  updatedAt           DateTime             @updatedAt
-  friends             Friendship[]         @relation("UserFriends")
-  friendOf            Friendship[]         @relation("FriendOfUser")
+  id                        String                  @id @default(cuid())
+  name                      String?
+  email                     String?                 @unique
+  emailVerified             Boolean
+  image                     String?
+  currency                  String                  @default("USD")
+  stellarAccount            String?
+  accounts                  Account[]
+  sessions                  Session[]
+  groups                    Group[]
+  associatedGroups          GroupUser[]
+  expenseParticipants       ExpenseParticipant[]
+  expenseNotes              ExpenseNote[]
+  userBalances              Balance[]               @relation("UserBalance")
+  friendBalances            Balance[]               @relation("FriendBalance")
+  groupUserBalances         GroupBalance[]          @relation("GroupUserBalance")
+  groupFriendBalances       GroupBalance[]          @relation("GroupFriendBalance")
+  paidExpenses              Expense[]               @relation("PaidByUser")
+  addedExpenses             Expense[]               @relation("AddedByUser")
+  deletedExpenses           Expense[]               @relation("DeletedByUser")
+  updatedExpenses           Expense[]               @relation("UpdatedByUser")
+  createdAt                 DateTime                @default(now())
+  updatedAt                 DateTime                @updatedAt
+  friends                   Friendship[]            @relation("UserFriends")
+  friendOf                  Friendship[]            @relation("FriendOfUser")
+  sentSettlements           SettlementTransaction[] @relation()
+  receiveSettlements        SettlementTransaction[] @relation("SettlementWithUser")
+  settlementItemsAsPayer    SettlementItem[]        @relation("SettlementItemUser")
+  settlementItemsAsReceiver SettlementItem[]        @relation("SettlementItemFriend")
 
   @@map("user")
 }
@@ -107,15 +111,16 @@ model Balance {
 }
 
 model Group {
-  id              String   @id @default(cuid())
-  name            String
-  userId          String
-  description     String?
-  image           String?
-  defaultCurrency String   @default("USD")
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id                     String                  @id @default(cuid())
+  name                   String
+  userId                 String
+  description            String?
+  image                  String?
+  defaultCurrency        String                  @default("USD")
+  createdAt              DateTime                @default(now())
+  updatedAt              DateTime                @updatedAt
   // contractGroupId Int      @unique
+  settlementTransactions SettlementTransaction[]
 
   createdBy     User           @relation(fields: [userId], references: [id], onDelete: Cascade)
   groupUsers    GroupUser[]
@@ -229,4 +234,34 @@ model Friendship {
 
   @@id([userId, friendId])
   @@unique([userId, friendId])
+}
+
+model SettlementTransaction {
+  id              String    @id @default(cuid())
+  userId          String
+  groupId         String
+  serializedTx    String
+  settleWithId    String?
+  status          String    @default("PENDING") // PENDING, COMPLETED, FAILED
+  createdAt       DateTime  @default(now())
+  completedAt     DateTime?
+  transactionHash String?
+
+  user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  group           Group            @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  settleWith      User?            @relation("SettlementWithUser", fields: [settleWithId], references: [id], onDelete: SetNull)
+  settlementItems SettlementItem[]
+}
+
+model SettlementItem {
+  id                      String                @id @default(cuid())
+  settlementTransactionId String
+  userId                  String
+  friendId                String
+  originalAmount          Float
+  originalCurrency        String
+  xlmAmount               Float
+  settlementTransaction   SettlementTransaction @relation(fields: [settlementTransactionId], references: [id], onDelete: Cascade)
+  user                    User                  @relation("SettlementItemUser", fields: [userId], references: [id], onDelete: Cascade)
+  friend                  User                  @relation("SettlementItemFriend", fields: [friendId], references: [id], onDelete: Cascade)
 }
