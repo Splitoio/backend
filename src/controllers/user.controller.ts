@@ -1,6 +1,10 @@
 import { Request, Response } from "express";
 import { prisma } from "../lib/prisma";
-import { addUserExpense, editExpense } from "../services/split.service";
+import {
+  addUserExpense,
+  editExpense,
+  getCompleteFriendsDetails,
+} from "../services/split.service";
 import { SplitType } from "@prisma/client";
 import { auth } from "../lib/auth";
 import { fromNodeHeaders } from "better-auth/node";
@@ -352,19 +356,20 @@ export const getFriends = async (
   const userId = req.user!.id;
 
   try {
-    const friends = await prisma.friendship.findMany({
-      where: { userId },
-      include: {
-        friend: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            image: true,
-          },
-        },
-      },
-    });
+    const friends = await getCompleteFriendsDetails(userId);
+    // const friends = await prisma.friendship.findMany({
+    //   where: { userId },
+    //   include: {
+    //     friend: {
+    //       select: {
+    //         id: true,
+    //         name: true,
+    //         email: true,
+    //         image: true,
+    //       },
+    //     },
+    //   },
+    // });
 
     res.json(friends);
   } catch (error) {

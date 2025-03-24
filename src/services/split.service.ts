@@ -834,6 +834,8 @@ export async function getCompleteFriendsDetails(userId: string) {
     },
   });
 
+  console.log("balances", balances);
+
   const friends = balances.reduce(
     (acc, balance) => {
       const friendId = balance.friendId;
@@ -843,6 +845,7 @@ export async function getCompleteFriendsDetails(userId: string) {
           id: balance.friendId,
           email: balance.friend.email,
           name: balance.friend.name,
+          image: balance.friend.image,
         };
       }
 
@@ -865,6 +868,7 @@ export async function getCompleteFriendsDetails(userId: string) {
         email?: string | null;
         name?: string | null;
         balances: { currency: string; amount: number }[];
+        image?: string | null;
       }
     >
   );
