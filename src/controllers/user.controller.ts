@@ -18,38 +18,38 @@ export const getBalances = async (req: Request, res: Response) => {
   const userId = req.user!.id;
 
   try {
-    const balancesRaw = await prisma.balance.findMany({
-      where: {
-        userId,
-      },
-      orderBy: {
-        amount: "desc",
-      },
-      include: {
-        friend: true,
-      },
-    });
+    // const balancesRaw = await prisma.balance.findMany({
+    //   where: {
+    //     userId,
+    //   },
+    //   orderBy: {
+    //     amount: "desc",
+    //   },
+    //   include: {
+    //     friend: true,
+    //   },
+    // });
 
-    const balances = balancesRaw
-      .reduce((acc, current) => {
-        const existing = acc.findIndex(
-          (item) => item.friendId === current.friendId
-        );
-        if (existing === -1) {
-          acc.push(current);
-        } else {
-          const existingItem = acc[existing];
-          if (existingItem) {
-            if (Math.abs(existingItem.amount) > Math.abs(current.amount)) {
-              acc[existing] = { ...existingItem, hasMore: true };
-            } else {
-              acc[existing] = { ...current, hasMore: true };
-            }
-          }
-        }
-        return acc;
-      }, [] as ((typeof balancesRaw)[number] & { hasMore?: boolean })[])
-      .sort((a, b) => Math.abs(b.amount) - Math.abs(a.amount));
+    // const balances = balancesRaw
+    //   .reduce((acc, current) => {
+    //     const existing = acc.findIndex(
+    //       (item) => item.friendId === current.friendId
+    //     );
+    //     if (existing === -1) {
+    //       acc.push(current);
+    //     } else {
+    //       const existingItem = acc[existing];
+    //       if (existingItem) {
+    //         if (Math.abs(existingItem.amount) > Math.abs(current.amount)) {
+    //           acc[existing] = { ...existingItem, hasMore: true };
+    //         } else {
+    //           acc[existing] = { ...current, hasMore: true };
+    //         }
+    //       }
+    //     }
+    //     return acc;
+    //   }, [] as ((typeof balancesRaw)[number] & { hasMore?: boolean })[])
+    //   .sort((a, b) => Math.abs(b.amount) - Math.abs(a.amount));
 
     const cumulatedBalances = await prisma.balance.groupBy({
       by: ["currency"],
@@ -61,19 +61,21 @@ export const getBalances = async (req: Request, res: Response) => {
       },
     });
 
+    console.log("cumulatedBalances", cumulatedBalances);
+
     const youOwe: Array<{ currency: string; amount: number }> = [];
     const youGet: Array<{ currency: string; amount: number }> = [];
 
     for (const b of cumulatedBalances) {
       const sumAmount = b._sum.amount;
       if (sumAmount && sumAmount > 0) {
-        youGet.push({ currency: b.currency, amount: sumAmount });
+        youOwe.push({ currency: b.currency, amount: Math.abs(sumAmount) });
       } else if (sumAmount && sumAmount < 0) {
-        youOwe.push({ currency: b.currency, amount: sumAmount });
+        youGet.push({ currency: b.currency, amount: Math.abs(sumAmount) });
       }
     }
 
-    res.json({ balances, cumulatedBalances, youOwe, youGet });
+    res.json({ cumulatedBalances, youOwe, youGet });
   } catch (error) {
     console.error("Get balances error:", error);
     res.status(500).json({ error: "Failed to fetch balances" });
