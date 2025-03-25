@@ -132,5 +132,5 @@ export async function convertUsdToXLM(amount: number) {
 
   const XlmToUsdRate = XlmToUsd.data.stellar.usd;
   const amountInXLM = amount / XlmToUsdRate;
-  return amountInXLM;
+  return amountInXLM.toFixed(7);
 }

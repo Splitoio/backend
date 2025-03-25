@@ -30,6 +30,6 @@ router.post("/:groupId/expenses", addOrEditExpense);
 router.post("/addMember", addMemberToGroup);
 router.post("/settle-transaction/create", settleDebtCreateTransaction);
 router.post("/settle-transaction/submit", settleDebtSubmitTransaction);
-router.delete("/:groupId/delete", deleteGroup);
+router.delete("/:groupId", deleteGroup);
 
 export const groupRouter = router;

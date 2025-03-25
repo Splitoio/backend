@@ -8,6 +8,7 @@ import {
   createSerializedTransaction,
   submitTransaction,
   getTransactionDetails,
+  checkAccountExists,
 } from "../utils/stellar";
 
 const settleDebtSchemaCreate = z.object({
@@ -28,11 +29,17 @@ export const settleDebtCreateTransaction = async (
   }
 
   const { groupId, address, settleWithId } = result.data;
+
   const userId = req.user!.id;
 
-  console.log("req.body", req.body);
-
   try {
+    const accountExists = await checkAccountExists(address);
+
+    if (!accountExists) {
+      res.status(400).json({ error: "Account does not exist" });
+      return;
+    }
+
     const balances = await prisma.groupBalance.findMany({
       where: {
         AND: [
@@ -72,11 +79,11 @@ export const settleDebtCreateTransaction = async (
 
     const toPayInXLM = await Promise.all(
       toPay.map(async (balance) => {
-        let xlmAmount: number = 0;
+        let xlmAmount: string = "0";
         if (balance.currency === "USD") {
           xlmAmount = await convertUsdToXLM(balance.amount);
         } else {
-          xlmAmount = Number(balance.amount);
+          xlmAmount = balance.amount.toString();
         }
         return {
           address: balance.friend.stellarAccount!,
@@ -84,7 +91,7 @@ export const settleDebtCreateTransaction = async (
           originalAmount: balance.amount,
           originalCurrency: balance.currency,
           friendId: balance.firendId,
-          xlmAmount,
+          xlmAmount: Number(xlmAmount),
         };
       })
     );
@@ -95,6 +102,8 @@ export const settleDebtCreateTransaction = async (
     );
 
     const accountBalance = await checkAccountBalance(address);
+
+    console.log("accountBalance", accountBalance);
 
     const XLM_BALANCE = Number(
       accountBalance.find((balance) => balance.asset_type === "native")
