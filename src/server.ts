@@ -19,7 +19,7 @@ app.use(
   cors({
     origin: [
       "http://localhost:3000",
-      "https://splito-j33y-1fifprnn4-varunsg666-gmailcoms-projects.vercel.app",
+      "https://splito-j33y.vercel.app",
       env.FRONTEND_URL,
     ],
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
