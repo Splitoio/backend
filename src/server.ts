@@ -11,17 +11,14 @@ import { errorHandler } from "./middleware/errorHandler";
 
 import { fromNodeHeaders, toNodeHandler } from "better-auth/node";
 import { auth } from "./lib/auth";
+import { FRONTEND_URLS } from "./config/frontend-urls";
 
 const app = express();
 
 // Move CORS before all routes
 app.use(
   cors({
-    origin: [
-      "http://localhost:3000",
-      "https://splito-j33y.vercel.app",
-      env.FRONTEND_URL,
-    ],
+    origin: FRONTEND_URLS,
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
     credentials: true,
   })
