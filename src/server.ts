@@ -17,7 +17,11 @@ const app = express();
 // Move CORS before all routes
 app.use(
   cors({
-    origin: ["http://localhost:3000", env.FRONTEND_URL],
+    origin: [
+      "http://localhost:3000",
+      "https://splito-j33y-1fifprnn4-varunsg666-gmailcoms-projects.vercel.app",
+      env.FRONTEND_URL,
+    ],
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
     credentials: true,
   })
