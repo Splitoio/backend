@@ -12,3 +12,5 @@ export * from './ExpenseNoteSchema';
 export * from './PushNotificationSchema';
 export * from './VerificationSchema';
 export * from './FriendshipSchema';
+export * from './SettlementTransactionSchema';
+export * from './SettlementItemSchema';

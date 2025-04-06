@@ -2,7 +2,7 @@ import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { prisma } from "./prisma";
 import { env } from "../config/env";
-
+import { FRONTEND_URLS } from "../config/frontend-urls";
 console.log(env.BACKEND_URL);
 
 export const auth = betterAuth({
@@ -20,7 +20,7 @@ export const auth = betterAuth({
     },
   },
   secret: process.env.SESSION_SECRET,
-  trustedOrigins: ["http://localhost:3000", env.FRONTEND_URL],
+  trustedOrigins: FRONTEND_URLS,
   advanced: {
     defaultCookieAttributes: {
       secure: true,

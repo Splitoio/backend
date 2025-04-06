@@ -5,18 +5,20 @@ import morgan from "morgan";
 import { env } from "./config/env";
 import { userRouter } from "./routes/user.routes";
 import { groupRouter } from "./routes/group.routes";
+import { fileRouter } from "./routes/file.routes";
 // import { authRouter } from './routes/auth.routes';
 import { errorHandler } from "./middleware/errorHandler";
 
 import { fromNodeHeaders, toNodeHandler } from "better-auth/node";
 import { auth } from "./lib/auth";
+import { FRONTEND_URLS } from "./config/frontend-urls";
 
 const app = express();
 
 // Move CORS before all routes
 app.use(
   cors({
-    origin: ["http://localhost:3000", env.FRONTEND_URL],
+    origin: FRONTEND_URLS,
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
     credentials: true,
   })
@@ -41,6 +43,7 @@ app.get("/api/me", async (req, res) => {
 // app.use('/api/auth', authRouter);
 app.use("/api/users", userRouter);
 app.use("/api/groups", groupRouter);
+app.use("/api/files", fileRouter);
 
 app.use(errorHandler);
 

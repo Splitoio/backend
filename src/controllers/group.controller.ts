@@ -1,6 +1,10 @@
 import { Request, Response } from "express";
 import { prisma } from "../lib/prisma";
-import { createGroupExpense, editExpense } from "../services/split.service";
+import {
+  createGroupExpense,
+  editExpense,
+  joinGroup as addMemberById,
+} from "../services/split.service";
 import { SplitType } from "@prisma/client";
 import { z } from "zod";
 import contactManager from "../contracts/utils";
@@ -30,14 +34,14 @@ export const createGroup = async (req: Request, res: Response) => {
       return;
     }
 
-    if (!user.stellarAccount) {
-      res.status(400).json({ error: "User has no stellar account" });
-      return;
-    }
+    // if (!user.stellarAccount) {
+    //   res.status(400).json({ error: "User has no stellar account" });
+    //   return;
+    // }
 
     // const groupId = Math.floor(Math.random() * 1000000000); // 9 digit random int
 
-    const groupId = await contactManager.createGroup([user.stellarAccount]);
+    // const groupId = await contactManager.createGroup([user.stellarAccount]);
 
     const userId = req.user!.id;
 
@@ -47,7 +51,7 @@ export const createGroup = async (req: Request, res: Response) => {
         userId,
         description,
         image: imageUrl,
-        contractGroupId: groupId,
+        // contractGroupId: groupId,
         defaultCurrency: currency,
         groupUsers: {
           create: {
@@ -227,7 +231,7 @@ export const addOrEditExpense = async (
   const { groupId } = req.params;
   const userId = req.user!.id;
   const {
-    paidBy,
+    // paidBy,
     name,
     category,
     amount,
@@ -238,6 +242,8 @@ export const addOrEditExpense = async (
     expenseDate,
     expenseId,
   } = req.body;
+
+  const paidBy = userId;
 
   try {
     if (expenseId) {
@@ -298,7 +304,8 @@ export const addMemberToGroup = async (
   res: Response
 ): Promise<void> => {
   const { memberIdentifier, groupId } = req.body;
-  const userStellarAccount = req.user!.stellarAccount!;
+  // const userStellarAccount = req.user!.stellarAccount!;
+  const userId = req.user!.id;
 
   try {
     const group = await prisma.group.findUnique({
@@ -306,7 +313,11 @@ export const addMemberToGroup = async (
         id: groupId,
       },
       select: {
-        contractGroupId: true,
+        groupUsers: {
+          select: {
+            userId: true,
+          },
+        },
       },
     });
 
@@ -315,7 +326,7 @@ export const addMemberToGroup = async (
       return;
     }
 
-    const contractGroupId = group.contractGroupId;
+    // const contractGroupId = group.contractGroupId;
 
     const member = await prisma.user.findFirst({
       where: {
@@ -328,18 +339,16 @@ export const addMemberToGroup = async (
       return;
     }
 
-    if (!member.stellarAccount) {
-      res
-        .status(400)
-        .json({ message: "User has no stellar account", status: "error" });
-      return;
-    }
+    // if (!member.stellarAccount) {
+    //   res
+    //     .status(400)
+    //     .json({ message: "User has no stellar account", status: "error" });
+    //   return;
+    // }
 
-    const members: string[] = await contactManager.getGroupMembers(
-      contractGroupId
-    );
+    const members = group.groupUsers.map((user) => user.userId);
 
-    if (!members.includes(userStellarAccount)) {
+    if (!members.includes(userId)) {
       res.status(400).json({
         message: "You are not a member of this group",
         status: "error",
@@ -347,7 +356,7 @@ export const addMemberToGroup = async (
       return;
     }
 
-    if (members.includes(member.stellarAccount)) {
+    if (members.includes(member.id)) {
       res.status(400).json({
         message: "User is already a member of this group",
         status: "error",
@@ -355,10 +364,7 @@ export const addMemberToGroup = async (
       return;
     }
 
-    await contactManager.addMemberToGroup(
-      contractGroupId,
-      member.stellarAccount
-    );
+    await addMemberById(member.id, groupId);
 
     res.json({
       success: true,
@@ -367,5 +373,52 @@ export const addMemberToGroup = async (
   } catch (error) {
     console.error("Add/Edit expense error:", error);
     res.status(500).json({ error: "Failed to create/edit expense" });
+  }
+};
+
+export const deleteGroup = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  const { groupId } = req.params;
+  const userId = req.user!.id;
+
+  try {
+    const group = await prisma.group.findUnique({
+      where: {
+        id: groupId,
+      },
+      include: {
+        groupBalances: true,
+      },
+    });
+
+    if (group?.userId !== userId) {
+      res.status(403).json({ error: "Only creator can delete the group" });
+      return;
+    }
+
+    const balanceWithNonZero = group?.groupBalances.find((b) => b.amount !== 0);
+
+    if (balanceWithNonZero) {
+      res.status(400).json({
+        error: "You have a non-zero balance in this group",
+      });
+      return;
+    }
+
+    await prisma.group.delete({
+      where: {
+        id: groupId,
+      },
+    });
+
+    res.json({
+      success: true,
+      message: "Group deleted successfully",
+    });
+  } catch (error) {
+    console.error("Delete group error:", error);
+    res.status(500).json({ error: "Failed to delete group" });
   }
 };

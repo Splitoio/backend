@@ -13,7 +13,6 @@ export const GroupSchema = z.object({
   defaultCurrency: z.string(),
   createdAt: z.coerce.date(),
   updatedAt: z.coerce.date(),
-  contractGroupId: z.number().int(),
 })
 
 export type Group = z.infer<typeof GroupSchema>

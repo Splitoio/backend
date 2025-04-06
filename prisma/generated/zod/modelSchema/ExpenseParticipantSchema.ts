@@ -7,7 +7,7 @@ import { z } from 'zod';
 export const ExpenseParticipantSchema = z.object({
   expenseId: z.string(),
   userId: z.string(),
-  amount: z.number().int(),
+  amount: z.number(),
 })
 
 export type ExpenseParticipant = z.infer<typeof ExpenseParticipantSchema>

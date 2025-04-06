@@ -9,7 +9,13 @@ import {
   addOrEditExpense,
   getGroupById,
   addMemberToGroup,
+  deleteGroup,
 } from "../controllers/group.controller";
+
+import {
+  settleDebtSubmitTransaction,
+  settleDebtCreateTransaction,
+} from "../controllers/settle.controller";
 
 const router = express.Router();
 
@@ -22,5 +28,8 @@ router.post("/join/:groupId", joinGroup);
 router.get("/:groupId", getGroupById);
 router.post("/:groupId/expenses", addOrEditExpense);
 router.post("/addMember", addMemberToGroup);
+router.post("/settle-transaction/create", settleDebtCreateTransaction);
+router.post("/settle-transaction/submit", settleDebtSubmitTransaction);
+router.delete("/:groupId", deleteGroup);
 
 export const groupRouter = router;
