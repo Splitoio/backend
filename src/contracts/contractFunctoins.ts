@@ -1,171 +1,172 @@
-// import {
-//     SplitPaymentContract,
-//     initializeClient,
-//     generateFundedKeypair,
-//     createSplitInfo
-// } from './stellarClient.js';
+import { 
+    SplitPaymentContract, 
+    initializeClient, 
+    generateFundedKeypair,
+    createSplitInfo 
+} from './stellarClient.js';
 
-// // Example 1: Create group and add expense with custom split
+// Example 1: Create group and add expense with custom split
 
-// async function createGroupWithExpense() {
-//     try {
-//         const sourceKeypair = await generateFundedKeypair();
-//         const client = await initializeClient(sourceKeypair);
-//         const contract = new SplitPaymentContract(client);
 
-//         // Get test accounts from env
-//         const members = [
-//             process.env.TEST_ACCOUNT_1,
-//             process.env.TEST_ACCOUNT_2,
-//             process.env.TEST_ACCOUNT_3
-//         ] as string[];
+async function createGroupWithExpense() {
+    try {
+        const sourceKeypair = await generateFundedKeypair();
+        const client = await initializeClient(sourceKeypair);
+        const contract = new SplitPaymentContract(client);
 
-//         console.log('Creating group...');
-//         const groupId = await contract.createGroup(members);
-//         console.log('Group created with ID:', groupId);
+        // Get test accounts from env
+        const members = [
+            process.env.TEST_ACCOUNT_1,
+            process.env.TEST_ACCOUNT_2,
+            process.env.TEST_ACCOUNT_3
+        ] as string[];
 
-//         // Create a 60-40 split between first two members
-//         const splitInfo = createSplitInfo(
-//             [members[0], members[1]],
-//             [6000, 4000]  // 60% and 40%
-//         );
+        console.log('Creating group...');
+        const groupId = await contract.createGroup(members);
+        console.log('Group created with ID:', groupId);
 
-//         console.log('Adding expense...');
-//         await contract.addExpense(
-//             groupId,
-//             members[0],  // payer
-//             1000000,     // amount (1 XLM = 10000000 stroops)
-//             "Dinner",
-//             splitInfo
-//         );
+        // Create a 60-40 split between first two members
+        const splitInfo = createSplitInfo(
+            [members[0], members[1]], 
+            [6000, 4000]  // 60% and 40%
+        );
 
-//         return groupId;
-//     } catch (error) {
-//         console.error('Error in createGroupWithExpense:', error);
-//         throw error;
-//     }
-// }
+        console.log('Adding expense...');
+        await contract.addExpense(
+            groupId,
+            members[0],  // payer
+            1000000,     // amount (1 XLM = 10000000 stroops)
+            "Dinner",
+            splitInfo
+        );
 
-// // Example 2: View group details and balances
-// async function viewGroupDetails(groupId: string) {
-//     try {
-//         const sourceKeypair = await generateFundedKeypair();
-//         const client = await initializeClient(sourceKeypair);
-//         const contract = new SplitPaymentContract(client);
+        return groupId;
+    } catch (error) {
+        console.error('Error in createGroupWithExpense:', error);
+        throw error;
+    }
+}
 
-//         console.log('Getting group members..');
-//         const members = await contract.getGroupMembers(groupId);
-//         console.log('Group members:', members);
+// Example 2: View group details and balances
+async function viewGroupDetails(groupId: string) {
+    try {
+        const sourceKeypair = await generateFundedKeypair();
+        const client = await initializeClient(sourceKeypair);
+        const contract = new SplitPaymentContract(client);
 
-//         console.log('Getting expenses..');
-//         const expenses = await contract.getGroupExpenses(groupId);
-//         console.log('Group expenses:', expenses);
+        console.log('Getting group members..');
+        const members = await contract.getGroupMembers(groupId);
+        console.log('Group members:', members);
 
-//         console.log('Getting member balances..');
-//         for (const member of members) {
-//             const balance = await contract.getMemberBalance(groupId, member);
-//             console.log(`Balance for ${member}:`, balance);
-//         }
-//     } catch (error) {
-//         console.error('Error in viewGroupDetails:', error);
-//         throw error;
-//     }
-// }
+        console.log('Getting expenses..');
+        const expenses = await contract.getGroupExpenses(groupId);
+        console.log('Group expenses:', expenses);
 
-// // Example 3: Settle debt between members
-// async function settleGroupDebt(groupId: string) {
-//     try {
-//         const sourceKeypair = await generateFundedKeypair();
-//         const client = await initializeClient(sourceKeypair);
-//         const contract = new SplitPaymentContract(client);
+        console.log('Getting member balances..');
+        for (const member of members) {
+            const balance = await contract.getMemberBalance(groupId, member);
+            console.log(`Balance for ${member}:`, balance);
+        }
+    } catch (error) {
+        console.error('Error in viewGroupDetails:', error);
+        throw error;
+    }
+}
 
-//         // Get the current balances
-//         const fromMember = process.env.TEST_ACCOUNT_2 as string;  // Member who owes money
-//         const toMember = process.env.TEST_ACCOUNT_1 as string   ;    // Member who is owed money
+// Example 3: Settle debt between members
+async function settleGroupDebt(groupId: string) {
+    try {
+        const sourceKeypair = await generateFundedKeypair();
+        const client = await initializeClient(sourceKeypair);
+        const contract = new SplitPaymentContract(client);
 
-//         const fromBalance = await contract.getMemberBalance(groupId, fromMember);
-//         console.log(`Current balance of payer: ${fromBalance}`);
+        // Get the current balances
+        const fromMember = process.env.TEST_ACCOUNT_2 as string;  // Member who owes money
+        const toMember = process.env.TEST_ACCOUNT_1 as string   ;    // Member who is owed money
 
-//         if (fromBalance >= 0) {
-//             console.log('No debt to settle');
-//             return;
-//         }
+        const fromBalance = await contract.getMemberBalance(groupId, fromMember);
+        console.log(`Current balance of payer: ${fromBalance}`);
 
-//         const amountToSettle = -fromBalance; // Use the exact amount owed
-//         console.log(`Settling amount: ${amountToSettle}`);
+        if (fromBalance >= 0) {
+            console.log('No debt to settle');
+            return;
+        }
 
-//         await contract.settleDebt(
-//             groupId,
-//             fromMember,
-//             toMember,
-//             amountToSettle
-//         );
-//         console.log('Debt settled successfully');
+        const amountToSettle = -fromBalance; // Use the exact amount owed
+        console.log(`Settling amount: ${amountToSettle}`);
 
-//         // Show updated balances
-//         const newFromBalance = await contract.getMemberBalance(groupId, fromMember);
-//         const newToBalance = await contract.getMemberBalance(groupId, toMember);
-//         console.log(`New balance for payer: ${newFromBalance}`);
-//         console.log(`New balance for receiver: ${newToBalance}`);
-//     } catch (error) {
-//         console.error('Error in settleGroupDebt:', error);
-//         throw error;
-//     }
-// }
+        await contract.settleDebt(
+            groupId,
+            fromMember,
+            toMember,
+            amountToSettle
+        );
+        console.log('Debt settled successfully');
 
-// // Example 4: Remove expense
-//     async function removeGroupExpense(groupId: string   ) {
-//     try {
-//         const sourceKeypair = await generateFundedKeypair();
-//         const client = await initializeClient(sourceKeypair);
-//         const contract = new SplitPaymentContract(client);
+        // Show updated balances
+        const newFromBalance = await contract.getMemberBalance(groupId, fromMember);
+        const newToBalance = await contract.getMemberBalance(groupId, toMember);
+        console.log(`New balance for payer: ${newFromBalance}`);
+        console.log(`New balance for receiver: ${newToBalance}`);
+    } catch (error) {
+        console.error('Error in settleGroupDebt:', error);
+        throw error;
+    }
+}
 
-//         console.log('Removing first expense...');
-//         await contract.removeExpense(
-//             groupId,
-//             0,  // first expense
-//             process.env.TEST_ACCOUNT_1 as string     // authorized by original payer
-//         );
-//         console.log('Expense removed successfully');
+// Example 4: Remove expense
+    async function removeGroupExpense(groupId: string   ) {
+    try {
+        const sourceKeypair = await generateFundedKeypair();
+        const client = await initializeClient(sourceKeypair);
+        const contract = new SplitPaymentContract(client);
 
-//         // Show updated expenses
-//         const expenses = await contract.getGroupExpenses(groupId);
-//         console.log('Updated expenses:', expenses);
-//     } catch (error) {
-//         console.error('Error in removeGroupExpense:', error);
-//         throw error;
-//     }
-// }
+        console.log('Removing first expense...');
+        await contract.removeExpense(
+            groupId,
+            0,  // first expense
+            process.env.TEST_ACCOUNT_1 as string     // authorized by original payer
+        );
+        console.log('Expense removed successfully');
 
-// // Run all examples
-// async function runExamples() {
-//     try {
-//         // Create group and add expense
-//         const groupId = await createGroupWithExpense();
+        // Show updated expenses
+        const expenses = await contract.getGroupExpenses(groupId);
+        console.log('Updated expenses:', expenses);
+    } catch (error) {
+        console.error('Error in removeGroupExpense:', error);
+        throw error;
+    }
+}
 
-//         // View initial group details
-//         await viewGroupDetails(groupId);
+// Run all examples
+async function runExamples() {
+    try {
+        // Create group and add expense
+        const groupId = await createGroupWithExpense();
 
-//         // Try to settle debt
-//         await settleGroupDebt(groupId);
+        // View initial group details
+        await viewGroupDetails(groupId);
 
-//         // Remove the expense
-//         await removeGroupExpense(groupId);
+        // Try to settle debt
+        await settleGroupDebt(groupId);
 
-//         // View final group details
-//         await viewGroupDetails(groupId);
+        // Remove the expense
+        await removeGroupExpense(groupId);
 
-//         console.log('All examples completed successfully!');
-//     } catch (error) {
-//         console.error('Error running examples:', error);
-//     }
-// }
+        // View final group details
+        await viewGroupDetails(groupId);
 
-// export {
-//     createGroupWithExpense,
-//     viewGroupDetails,
-//     settleGroupDebt,
-//     removeGroupExpense,
-//     runExamples
-// };
-// runExamples();
+        console.log('All examples completed successfully!');
+    } catch (error) {
+        console.error('Error running examples:', error);
+    }
+}
+
+export {
+    createGroupWithExpense,
+    viewGroupDetails,
+    settleGroupDebt,
+    removeGroupExpense,
+    runExamples
+};
+runExamples();

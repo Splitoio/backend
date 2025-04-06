@@ -1,4 +1,3 @@
-import { Keypair } from "@stellar/stellar-sdk";
 import {
   SplitPaymentContract,
   initializeClient,
@@ -16,10 +15,7 @@ class GroupExpenseManager {
 
   private async initialize() {
     console.log("Initializing client...");
-    // const sourceKeypair = await generateFundedKeypair();
-    const secret = process.env.SECRET_KEY!;
-    const sourceKeypair = Keypair.fromSecret(secret);
-
+    const sourceKeypair = await generateFundedKeypair();
     this.client = await initializeClient(sourceKeypair);
     this.contract = new SplitPaymentContract(this.client);
     console.log("Client initialized");
@@ -31,27 +27,44 @@ class GroupExpenseManager {
     return groupId;
   }
 
-  async addExpense(
-    groupId: number,
-    amount: number,
-    splitInfo: ReturnType<typeof createSplitInfo>,
-    description: string,
-    payer: string
-  ) {
-    await this.contract.addExpense(
-      groupId,
-      payer, // payer
-      amount, // amount (1 XLM = 10000000 stroops)
-      description,
-      splitInfo
-    );
+  async createGroupWithExpense() {
+    try {
+      const members = [
+        process.env.TEST_ACCOUNT_1,
+        process.env.TEST_ACCOUNT_2,
+        process.env.TEST_ACCOUNT_3,
+      ] as string[];
+
+      console.log("Creating group...");
+      const groupId = await this.contract.createGroup(members);
+      console.log("Group created with ID:", groupId);
+
+      const splitInfo = createSplitInfo(
+        [members[0], members[1]],
+        [6000, 4000] // 60% and 40%
+      );
+
+      console.log("Adding expense...");
+      await this.contract.addExpense(
+        groupId,
+        members[0], // payer
+        1000000, // amount (1 XLM = 10000000 stroops)
+        "Dinner",
+        splitInfo
+      );
+
+      return groupId;
+    } catch (error) {
+      console.error("Error in createGroupWithExpense:", error);
+      throw error;
+    }
   }
 
   async viewGroupDetails(groupId: number) {
     try {
-      // const members = await this.getGroupMembers(groupId);
-      // const expenses = await this.getGroupExpenses(groupId);
-      // const balances = await this.getGroupMemberBalances(groupId, members);
+      const members = await this.getGroupMembers(groupId);
+      const expenses = await this.getGroupExpenses(groupId);
+      await this.getGroupMemberBalances(groupId, members);
     } catch (error) {
       console.error("Error in viewGroupDetails:", error);
       throw error;
@@ -66,18 +79,18 @@ class GroupExpenseManager {
   }
 
   async getGroupExpenses(groupId: number) {
+    console.log("Getting expenses..");
     const expenses = await this.contract.getGroupExpenses(groupId);
+    console.log("Group expenses:", expenses);
     return expenses;
   }
 
-  async getGroupMemberBalances(groupId: number, member: string) {
-    return await this.contract.getMemberBalance(groupId, member);
-
-    // console.log("Getting member balances..");
-    // for (const member of members) {
-    //   const balance = await this.contract.getMemberBalance(groupId, member);
-    //   console.log(`Balance for ${member}:`, balance);
-    // }
+  async getGroupMemberBalances(groupId: number, members: string[]) {
+    console.log("Getting member balances..");
+    for (const member of members) {
+      const balance = await this.contract.getMemberBalance(groupId, member);
+      console.log(`Balance for ${member}:`, balance);
+    }
   }
 
   async addMemberToGroup(groupId: number, member: string) {
@@ -142,6 +155,19 @@ class GroupExpenseManager {
     } catch (error) {
       console.error("Error in removeGroupExpense:", error);
       throw error;
+    }
+  }
+
+  async runExamples() {
+    try {
+      const groupId = await this.createGroupWithExpense();
+      await this.viewGroupDetails(groupId);
+      await this.settleGroupDebt(groupId);
+      await this.removeGroupExpense(groupId);
+      await this.viewGroupDetails(groupId);
+      console.log("All examples completed successfully!");
+    } catch (error) {
+      console.error("Error running examples:", error);
     }
   }
 }
