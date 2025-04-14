@@ -61,17 +61,30 @@ export const SUPPORTED_CHAINS = [
   },
 ];
 
+// export const SUPPORTED_FIAT_CURRENCIES = [
+//   { id: "USD", name: "US Dollar", symbol: "$", identifier: "usd" },
+//   { id: "EUR", name: "Euro", symbol: "€", identifier: "eur" },
+//   { id: "GBP", name: "British Pound", symbol: "£", identifier: "gbp" },
+//   { id: "INR", name: "Indian Rupee", symbol: "₹", identifier: "inr" },
+//   { id: "JPY", name: "Japanese Yen", symbol: "¥", identifier: "jpy" },
+//   { id: "CAD", name: "Canadian Dollar", symbol: "C$", identifier: "cad" },
+//   { id: "AUD", name: "Australian Dollar", symbol: "A$", identifier: "aud" },
+//   { id: "CNY", name: "Chinese Yuan", symbol: "¥", identifier: "cny" },
+//   { id: "VND", name: "Vietnamese Dong", symbol: "₫", identifier: "vnd" },
+//   { id: "CHF", name: "Swiss Franc", symbol: "CHF", identifier: "chf" },
+// ];
+
 export const SUPPORTED_FIAT_CURRENCIES = [
-  { id: "USD", name: "US Dollar", symbol: "$", identifier: "usd" },
-  { id: "EUR", name: "Euro", symbol: "€", identifier: "eur" },
-  { id: "GBP", name: "British Pound", symbol: "£", identifier: "gbp" },
-  { id: "INR", name: "Indian Rupee", symbol: "₹", identifier: "inr" },
-  { id: "JPY", name: "Japanese Yen", symbol: "¥", identifier: "jpy" },
-  { id: "CAD", name: "Canadian Dollar", symbol: "C$", identifier: "cad" },
-  { id: "AUD", name: "Australian Dollar", symbol: "A$", identifier: "aud" },
-  { id: "CNY", name: "Chinese Yuan", symbol: "¥", identifier: "cny" },
-  { id: "VND", name: "Vietnamese Dong", symbol: "₫", identifier: "vnd" },
-  { id: "CHF", name: "Swiss Franc", symbol: "CHF", identifier: "chf" },
+  { id: "USD", name: "US Dollar", symbol: "$", coinGeckoId: "usd" },
+  { id: "EUR", name: "Euro", symbol: "€", coinGeckoId: "eur" },
+  { id: "GBP", name: "British Pound", symbol: "£", coinGeckoId: "gbp" },
+  { id: "INR", name: "Indian Rupee", symbol: "₹", coinGeckoId: "inr" },
+  { id: "JPY", name: "Japanese Yen", symbol: "¥", coinGeckoId: "jpy" },
+  { id: "CAD", name: "Canadian Dollar", symbol: "C$", coinGeckoId: "cad" },
+  { id: "AUD", name: "Australian Dollar", symbol: "A$", coinGeckoId: "aud" },
+  { id: "CNY", name: "Chinese Yuan", symbol: "¥", coinGeckoId: "cny" },
+  { id: "VND", name: "Vietnamese Dong", symbol: "₫", coinGeckoId: "vnd" },
+  { id: "CHF", name: "Swiss Franc", symbol: "CHF", coinGeckoId: "chf" },
 ];
 
 export const supportedTokens = [

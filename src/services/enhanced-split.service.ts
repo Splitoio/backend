@@ -56,13 +56,7 @@ export const createEnhancedGroupExpense = async (
   if (timeLockIn && currencyType === CurrencyType.TOKEN) {
     try {
       // Get exchange rate to USD for reference
-      exchangeRate = await getExchangeRate(
-        currency,
-        "USD",
-        CurrencyType.TOKEN,
-        CurrencyType.FIAT,
-        chainId
-      );
+      exchangeRate = await getExchangeRate(currency, "USD");
     } catch (error) {
       console.error("Failed to get exchange rate for time lock-in:", error);
       // Continue without exchange rate if it fails
@@ -251,10 +245,7 @@ export const getExpensesWithConvertedValues = async (
             convertedAmount = await convertAmount(
               expense.amount,
               expense.currency,
-              targetCurrency,
-              CurrencyType.TOKEN,
-              CurrencyType.FIAT,
-              expense.chainId || undefined
+              targetCurrency
             );
           } catch (error) {
             console.error("Failed to convert expense amount:", error);
@@ -267,9 +258,7 @@ export const getExpensesWithConvertedValues = async (
           convertedAmount = await convertAmount(
             expense.amount,
             expense.currency,
-            targetCurrency,
-            CurrencyType.FIAT,
-            CurrencyType.FIAT
+            targetCurrency
           );
         } catch (error) {
           console.error("Failed to convert expense amount:", error);

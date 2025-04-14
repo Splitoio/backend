@@ -20,7 +20,6 @@ export { FriendshipScalarFieldEnumSchema } from './FriendshipScalarFieldEnumSche
 export { SettlementTransactionScalarFieldEnumSchema } from './SettlementTransactionScalarFieldEnumSchema';
 export { SettlementItemScalarFieldEnumSchema } from './SettlementItemScalarFieldEnumSchema';
 export { FiatCurrencyScalarFieldEnumSchema } from './FiatCurrencyScalarFieldEnumSchema';
-export { ExchangeRateScalarFieldEnumSchema } from './ExchangeRateScalarFieldEnumSchema';
 export { SortOrderSchema } from './SortOrderSchema';
 export { QueryModeSchema } from './QueryModeSchema';
 export { NullsOrderSchema } from './NullsOrderSchema';

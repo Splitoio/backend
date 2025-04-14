@@ -47,14 +47,7 @@ export const getExchangeRateController = async (
   res: Response
 ) => {
   try {
-    const {
-      fromCurrency,
-      toCurrency,
-      fromType = CurrencyType.FIAT,
-      toType = CurrencyType.FIAT,
-      fromChainId,
-      toChainId,
-    } = req.query;
+    const { fromCurrency, toCurrency } = req.query;
 
     if (!fromCurrency || !toCurrency) {
       res.status(400).json({ error: "From and to currencies are required" });
@@ -63,11 +56,7 @@ export const getExchangeRateController = async (
 
     const rate = await getExchangeRate(
       fromCurrency as string,
-      toCurrency as string,
-      fromType as CurrencyType,
-      toType as CurrencyType,
-      fromChainId as string,
-      toChainId as string
+      toCurrency as string
     );
 
     res.status(200).json({ rate });
@@ -102,11 +91,7 @@ export const convertAmountController = async (req: Request, res: Response) => {
     const convertedAmount = await convertAmount(
       parseFloat(amount as string),
       fromCurrency as string,
-      toCurrency as string,
-      fromType as CurrencyType,
-      toType as CurrencyType,
-      fromChainId as string,
-      toChainId as string
+      toCurrency as string
     );
 
     res.status(200).json({

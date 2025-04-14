@@ -341,31 +341,11 @@ enum CurrencyType {
 
 // Add a table to track fiat currencies
 model FiatCurrency {
-  id        String   @id // Currency code (e.g., USD, EUR, INR)
-  name      String
-  symbol    String
-  enabled   Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // Track exchange rates for this currency
-  baseRates  ExchangeRate[] @relation("BaseCurrency")
-  quoteRates ExchangeRate[] @relation("QuoteCurrency")
-}
-
-// Table to store exchange rates
-model ExchangeRate {
-  id              String   @id @default(cuid())
-  baseCurrencyId  String // From currency
-  quoteCurrencyId String // To currency
-  rate            Float // Exchange rate (1 base = X quote)
-  source          String // Source of rate (e.g., "coingecko", "manual")
-  timestamp       DateTime @default(now())
-
-  baseCurrency  FiatCurrency @relation("BaseCurrency", fields: [baseCurrencyId], references: [id])
-  quoteCurrency FiatCurrency @relation("QuoteCurrency", fields: [quoteCurrencyId], references: [id])
-
-  @@unique([baseCurrencyId, quoteCurrencyId])
-  @@index([baseCurrencyId])
-  @@index([quoteCurrencyId])
+  id          String   @id // Currency code (e.g., USD, EUR, INR)
+  name        String
+  symbol      String
+  coinGeckoId String
+  enabled     Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }

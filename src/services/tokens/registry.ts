@@ -14,6 +14,9 @@ export class TokenRegistry {
   }
 
   getTokensByChain(chainId: string): TokenConfig[] {
+    if (chainId === "all") {
+      return Array.from(this.tokens.values()).filter((token) => token.enabled);
+    }
     return Array.from(this.tokens.values()).filter(
       (token) => token.chainId === chainId && token.enabled
     );
