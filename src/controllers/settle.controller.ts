@@ -131,6 +131,7 @@ export const settleDebtCreateTransaction = async (
         serializedTx: transaction.serializedTx,
         settleWithId: settleWithId,
         status: "PENDING",
+        chainId: "stellar",
         settlementItems: {
           create: toPayInXLM.map((item) => ({
             userId: userId,
@@ -138,6 +139,13 @@ export const settleDebtCreateTransaction = async (
             originalAmount: item.originalAmount,
             originalCurrency: item.originalCurrency,
             xlmAmount: item.xlmAmount,
+            amount: item.xlmAmount,
+            currency: "XLM",
+            friend: {
+              connect: {
+                id: item.friendId,
+              },
+            },
           })),
         },
       },
@@ -223,7 +231,7 @@ export const settleDebtSubmitTransaction = async (
       const matchingItem = settlementTransaction.settlementItems.find(
         (item) =>
           item.friend.stellarAccount === recipient &&
-          Math.abs(item.xlmAmount - amount) < 0.00001 // Account for floating point precision
+          Math.abs(item.amount - amount) < 0.00001 // Account for floating point precision
       );
 
       if (!matchingItem) {
@@ -280,8 +288,8 @@ export const settleDebtSubmitTransaction = async (
     // Update group balances based on the settlement items
     const participants = settlementTransaction.settlementItems.map((item) => ({
       userId: item.friendId,
-      amount: item.originalAmount,
-      currency: item.originalCurrency,
+      amount: item.amount,
+      currency: item.currency,
     }));
 
     await updateGroupBalanceForParticipants(participants, userId, groupId);

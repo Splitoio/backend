@@ -3,7 +3,6 @@ import { prismaAdapter } from "better-auth/adapters/prisma";
 import { prisma } from "./prisma";
 import { env } from "../config/env";
 import { FRONTEND_URLS } from "../config/frontend-urls";
-console.log(env.BACKEND_URL);
 
 export const auth = betterAuth({
   baseURL: env.BACKEND_URL,

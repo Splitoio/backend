@@ -15,6 +15,11 @@ const envSchema = z.object({
   BACKEND_URL: z.string(),
   FRONTEND_URL: z.string(),
   SECRET_KEY: z.string(),
+
+  // Pricing service configurations
+  PRICING_SERVICE_PROVIDER: z.string().optional().default("coingecko"),
+  COINGECKO_API_KEY: z.string().optional(),
+  // Google Cloud Storage settings
   GOOGLE_CLOUD_PROJECT_ID: z.string().optional(),
   GOOGLE_CLOUD_CREDENTIALS: z.string().optional(),
   GOOGLE_CLOUD_BUCKET_NAME: z.string().optional(),

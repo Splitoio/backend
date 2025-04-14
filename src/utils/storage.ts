@@ -2,7 +2,7 @@ import { Storage } from "@google-cloud/storage";
 import { v4 as uuidv4 } from "uuid";
 import path from "path";
 import { env } from "../config/env";
-
+import { logger } from "./logger";
 // Create a storage client
 const storage = new Storage({
   projectId: env.GOOGLE_CLOUD_PROJECT_ID,
@@ -30,7 +30,7 @@ const configureBucketCors = async () => {
         ],
       },
     ]);
-    console.log(
+    logger.info(
       `CORS configuration set for bucket: ${env.GOOGLE_CLOUD_BUCKET_NAME}`
     );
   } catch (error) {
