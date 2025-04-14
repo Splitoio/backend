@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { SplitTypeSchema } from '../inputTypeSchemas/SplitTypeSchema'
+import { CurrencyTypeSchema } from '../inputTypeSchemas/CurrencyTypeSchema'
 
 /////////////////////////////////////////
 // EXPENSE SCHEMA
@@ -7,6 +8,7 @@ import { SplitTypeSchema } from '../inputTypeSchemas/SplitTypeSchema'
 
 export const ExpenseSchema = z.object({
   splitType: SplitTypeSchema,
+  currencyType: CurrencyTypeSchema,
   id: z.string().cuid(),
   paidBy: z.string(),
   addedBy: z.string(),
@@ -17,6 +19,10 @@ export const ExpenseSchema = z.object({
   createdAt: z.coerce.date(),
   updatedAt: z.coerce.date(),
   currency: z.string(),
+  tokenId: z.string().nullable(),
+  chainId: z.string().nullable(),
+  exchangeRate: z.number().nullable(),
+  timeLockIn: z.boolean(),
   fileKey: z.string().nullable(),
   groupId: z.string().nullable(),
   deletedAt: z.coerce.date().nullable(),

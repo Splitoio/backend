@@ -14,6 +14,8 @@ export const SettlementTransactionSchema = z.object({
   createdAt: z.coerce.date(),
   completedAt: z.coerce.date().nullable(),
   transactionHash: z.string().nullable(),
+  chainId: z.string(),
+  tokenId: z.string().nullable(),
 })
 
 export type SettlementTransaction = z.infer<typeof SettlementTransactionSchema>

@@ -1,6 +1,9 @@
 export * from './AccountSchema';
 export * from './SessionSchema';
 export * from './UserSchema';
+export * from './ChainAccountSchema';
+export * from './SupportedChainSchema';
+export * from './TokenSchema';
 export * from './VerificationTokenSchema';
 export * from './BalanceSchema';
 export * from './GroupSchema';
@@ -14,3 +17,5 @@ export * from './VerificationSchema';
 export * from './FriendshipSchema';
 export * from './SettlementTransactionSchema';
 export * from './SettlementItemSchema';
+export * from './FiatCurrencySchema';
+export * from './ExchangeRateSchema';
