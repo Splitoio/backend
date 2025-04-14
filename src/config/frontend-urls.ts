@@ -6,3 +6,5 @@ export const FRONTEND_URLS = [
   "https://beta.splito.io",
   env.FRONTEND_URL,
 ];
+
+
