@@ -1,0 +1,446 @@
+{
+  "info": {
+    "name": "v2_routes",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Currency Routes",
+      "item": [
+        {
+          "name": "Get Fiat Currencies",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/currency/fiat",
+              "host": ["{{base_url}}"],
+              "path": ["currency", "fiat"]
+            },
+            "description": "Retrieve all supported fiat currencies"
+          }
+        },
+        {
+          "name": "Get All Currencies",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/currency/all",
+              "host": ["{{base_url}}"],
+              "path": ["currency", "all"]
+            },
+            "description": "Retrieve all currencies (fiat and tokens)"
+          }
+        },
+        {
+          "name": "Get Exchange Rate",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/currency/rate?fromCurrency=USD&toCurrency=EUR&fromType=FIAT&toType=FIAT",
+              "host": ["{{base_url}}"],
+              "path": ["currency", "rate"],
+              "query": [
+                {
+                  "key": "fromCurrency",
+                  "value": "USD",
+                  "description": "The source currency code"
+                },
+                {
+                  "key": "toCurrency",
+                  "value": "EUR",
+                  "description": "The target currency code"
+                },
+                {
+                  "key": "fromType",
+                  "value": "FIAT",
+                  "description": "Type of the source currency (FIAT or TOKEN)"
+                },
+                {
+                  "key": "toType",
+                  "value": "FIAT",
+                  "description": "Type of the target currency (FIAT or TOKEN)"
+                },
+                {
+                  "key": "fromChainId",
+                  "value": "",
+                  "description": "Chain ID for token (if applicable)",
+                  "disabled": true
+                },
+                {
+                  "key": "toChainId",
+                  "value": "",
+                  "description": "Chain ID for token (if applicable)",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Get the exchange rate between two currencies"
+          }
+        },
+        {
+          "name": "Convert Amount",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/currency/convert?amount=100&fromCurrency=USD&toCurrency=EUR&fromType=FIAT&toType=FIAT",
+              "host": ["{{base_url}}"],
+              "path": ["currency", "convert"],
+              "query": [
+                {
+                  "key": "amount",
+                  "value": "100",
+                  "description": "The amount to convert"
+                },
+                {
+                  "key": "fromCurrency",
+                  "value": "USD",
+                  "description": "The source currency code"
+                },
+                {
+                  "key": "toCurrency",
+                  "value": "EUR",
+                  "description": "The target currency code"
+                },
+                {
+                  "key": "fromType",
+                  "value": "FIAT",
+                  "description": "Type of the source currency (FIAT or TOKEN)"
+                },
+                {
+                  "key": "toType",
+                  "value": "FIAT",
+                  "description": "Type of the target currency (FIAT or TOKEN)"
+                },
+                {
+                  "key": "fromChainId",
+                  "value": "",
+                  "description": "Chain ID for token (if applicable)",
+                  "disabled": true
+                },
+                {
+                  "key": "toChainId",
+                  "value": "",
+                  "description": "Chain ID for token (if applicable)",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Convert an amount from one currency to another"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Enhanced Expense Routes",
+      "item": [
+        {
+          "name": "Create Enhanced Expense",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/enhanced-expense",
+              "host": ["{{base_url}}"],
+              "path": ["enhanced-expense"]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"groupId\": \"group-id-123\",\n  \"paidBy\": \"user-id-123\",\n  \"name\": \"Group Dinner\",\n  \"category\": \"Food\",\n  \"amount\": 100.50,\n  \"splitType\": \"EQUAL\",\n  \"currency\": \"USD\",\n  \"currencyType\": \"FIAT\",\n  \"timeLockIn\": true,\n  \"participants\": [\n    {\n      \"userId\": \"user-id-123\",\n      \"amount\": 50.25\n    },\n    {\n      \"userId\": \"user-id-456\",\n      \"amount\": 50.25\n    }\n  ],\n  \"expenseDate\": \"2023-08-15T12:00:00Z\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Create a new expense with support for multiple currency types and time lock-in"
+          }
+        },
+        {
+          "name": "Get Enhanced Expenses",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/enhanced-expense/:groupId?targetCurrency=USD",
+              "host": ["{{base_url}}"],
+              "path": ["enhanced-expense", ":groupId"],
+              "query": [
+                {
+                  "key": "targetCurrency",
+                  "value": "USD",
+                  "description": "Currency to convert expense values to"
+                }
+              ],
+              "variable": [
+                {
+                  "key": "groupId",
+                  "value": "group-id-123",
+                  "description": "ID of the group to get expenses for"
+                }
+              ]
+            },
+            "description": "Get expenses with converted values based on time lock-in"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Multichain Routes",
+      "item": [
+        {
+          "name": "Get Available Chains",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/multichain/chains",
+              "host": ["{{base_url}}"],
+              "path": ["multichain", "chains"]
+            },
+            "description": "Get all available blockchain networks for the user"
+          }
+        },
+        {
+          "name": "Get Available Tokens",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/multichain/tokens/:chainId",
+              "host": ["{{base_url}}"],
+              "path": ["multichain", "tokens", ":chainId"],
+              "variable": [
+                {
+                  "key": "chainId",
+                  "value": "ethereum",
+                  "description": "ID of the blockchain network"
+                }
+              ]
+            },
+            "description": "Get all available tokens for a specific blockchain network"
+          }
+        },
+        {
+          "name": "Get All Chains and Tokens",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/multichain/all-chains-tokens",
+              "host": ["{{base_url}}"],
+              "path": ["multichain", "all-chains-tokens"]
+            },
+            "description": "Get all chains and their available tokens in one request"
+          }
+        },
+        {
+          "name": "Get User Chain Accounts",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/multichain/accounts",
+              "host": ["{{base_url}}"],
+              "path": ["multichain", "accounts"]
+            },
+            "description": "Get all blockchain accounts for the current user"
+          }
+        },
+        {
+          "name": "Add User Chain Account",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/multichain/accounts",
+              "host": ["{{base_url}}"],
+              "path": ["multichain", "accounts"]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"chainId\": \"ethereum\",\n  \"address\": \"0x1234567890abcdef1234567890abcdef12345678\",\n  \"isDefault\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Add a new blockchain account for the current user"
+          }
+        },
+        {
+          "name": "Create Multichain Settlement",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/multichain/settlements",
+              "host": ["{{base_url}}"],
+              "path": ["multichain", "settlements"]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"chainId\": \"ethereum\",\n  \"tokenId\": \"eth\",\n  \"groupId\": \"group-id-123\",\n  \"transactions\": [\n    {\n      \"toUserId\": \"user-id-456\",\n      \"amount\": \"0.01\",\n      \"description\": \"Debt settlement for dinner\"\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Create a new multichain settlement transaction"
+          }
+        },
+        {
+          "name": "Submit Multichain Settlement",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/multichain/settlements/submit",
+              "host": ["{{base_url}}"],
+              "path": ["multichain", "settlements", "submit"]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"transactionId\": \"tx-id-123\",\n  \"signedTx\": \"0x...\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Submit a signed multichain settlement transaction"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Pricing Routes",
+      "item": [
+        {
+          "name": "Get Price",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/pricing/price?id=bitcoin&baseCurrency=usd",
+              "host": ["{{base_url}}"],
+              "path": ["pricing", "price"],
+              "query": [
+                {
+                  "key": "id",
+                  "value": "bitcoin",
+                  "description": "ID of the token/currency"
+                },
+                {
+                  "key": "baseCurrency",
+                  "value": "usd",
+                  "description": "Base currency for price"
+                }
+              ]
+            },
+            "description": "Get the current price of a token or currency"
+          }
+        },
+        {
+          "name": "Get Prices",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/pricing/prices?ids=bitcoin,ethereum&baseCurrency=usd",
+              "host": ["{{base_url}}"],
+              "path": ["pricing", "prices"],
+              "query": [
+                {
+                  "key": "ids",
+                  "value": "bitcoin,ethereum",
+                  "description": "Comma-separated list of token/currency IDs"
+                },
+                {
+                  "key": "baseCurrency",
+                  "value": "usd",
+                  "description": "Base currency for prices"
+                }
+              ]
+            },
+            "description": "Get the prices of multiple tokens/currencies"
+          }
+        },
+        {
+          "name": "Get Historical Price",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/pricing/historical?id=bitcoin&baseCurrency=usd&date=2023-01-01T00:00:00Z",
+              "host": ["{{base_url}}"],
+              "path": ["pricing", "historical"],
+              "query": [
+                {
+                  "key": "id",
+                  "value": "bitcoin",
+                  "description": "ID of the token/currency"
+                },
+                {
+                  "key": "baseCurrency",
+                  "value": "usd",
+                  "description": "Base currency for price"
+                },
+                {
+                  "key": "date",
+                  "value": "2023-01-01T00:00:00Z",
+                  "description": "Date for historical price"
+                }
+              ]
+            },
+            "description": "Get the historical price of a token/currency"
+          }
+        },
+        {
+          "name": "Get Exchange Rate",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/pricing/exchange-rate?fromId=bitcoin&toId=usd",
+              "host": ["{{base_url}}"],
+              "path": ["pricing", "exchange-rate"],
+              "query": [
+                {
+                  "key": "fromId",
+                  "value": "bitcoin",
+                  "description": "ID of the source token/currency"
+                },
+                {
+                  "key": "toId",
+                  "value": "usd",
+                  "description": "ID of the target token/currency"
+                }
+              ]
+            },
+            "description": "Get exchange rate between two currencies/tokens"
+          }
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:3000/api",
+      "type": "string"
+    }
+  ]
+}
