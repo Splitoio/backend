@@ -5,11 +5,11 @@ import {
   createGroup,
   getAllGroups,
   getAllGroupsWithBalances,
-  joinGroup,
-  addOrEditExpense,
   getGroupById,
   addMemberToGroup,
   deleteGroup,
+  createEnhancedExpenseController,
+  getEnhancedExpensesController,
 } from "../controllers/group.controller";
 
 import {
@@ -24,9 +24,9 @@ router.use(getSession);
 router.post("/", createGroup);
 router.get("/", getAllGroups);
 router.get("/balances", getAllGroupsWithBalances);
-router.post("/join/:groupId", joinGroup);
-router.get("/:groupId", getGroupById);
-router.post("/:groupId/expenses", addOrEditExpense);
+router.get("/:groupId", getEnhancedExpensesController);
+// router.get("/:groupId", getGroupById);
+router.post("/:groupId/expenses", createEnhancedExpenseController);
 router.post("/addMember", addMemberToGroup);
 router.post("/settle-transaction/create", settleDebtCreateTransaction);
 router.post("/settle-transaction/submit", settleDebtSubmitTransaction);
