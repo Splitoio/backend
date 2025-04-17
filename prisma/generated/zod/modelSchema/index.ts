@@ -18,3 +18,5 @@ export * from './FriendshipSchema';
 export * from './SettlementTransactionSchema';
 export * from './SettlementItemSchema';
 export * from './FiatCurrencySchema';
+export * from './UserAcceptedTokenSchema';
+export * from './GroupAcceptedTokenSchema';

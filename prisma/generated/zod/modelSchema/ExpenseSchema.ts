@@ -21,6 +21,7 @@ export const ExpenseSchema = z.object({
   currency: z.string(),
   tokenId: z.string().nullable(),
   chainId: z.string().nullable(),
+  acceptedTokenIds: z.string().array(),
   exchangeRate: z.number().nullable(),
   timeLockIn: z.boolean(),
   fileKey: z.string().nullable(),

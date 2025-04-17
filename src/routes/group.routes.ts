@@ -10,11 +10,15 @@ import {
   deleteGroup,
   createEnhancedExpenseController,
   getEnhancedExpensesController,
+  getGroupAcceptedTokens,
+  addGroupAcceptedToken,
+  removeGroupAcceptedToken,
 } from "../controllers/group.controller";
 
 import {
   settleDebtSubmitTransaction,
   settleDebtCreateTransaction,
+  getSettlementTokenOptions,
 } from "../controllers/settle.controller";
 
 const router = express.Router();
@@ -28,6 +32,14 @@ router.get("/:groupId", getEnhancedExpensesController);
 // router.get("/:groupId", getGroupById);
 router.post("/:groupId/expenses", createEnhancedExpenseController);
 router.post("/addMember", addMemberToGroup);
+
+// Group accepted tokens routes
+router.get("/:groupId/accepted-tokens", getGroupAcceptedTokens);
+router.post("/:groupId/accepted-tokens", addGroupAcceptedToken);
+router.delete("/:groupId/accepted-tokens/:tokenId", removeGroupAcceptedToken);
+
+// Settlement routes
+router.get("/settle-transaction/token-options", getSettlementTokenOptions);
 router.post("/settle-transaction/create", settleDebtCreateTransaction);
 router.post("/settle-transaction/submit", settleDebtSubmitTransaction);
 router.delete("/:groupId", deleteGroup);

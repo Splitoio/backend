@@ -17,6 +17,15 @@ export const createGroup = async (req: Request, res: Response) => {
       description: z.string().optional(),
       imageUrl: z.string().optional(),
       currency: z.string().default("USD"),
+      acceptedTokens: z
+        .array(
+          z.object({
+            tokenId: z.string(),
+            chainId: z.string(),
+            isDefault: z.boolean().optional(),
+          })
+        )
+        .optional(),
     });
 
     const result = groupSchema.safeParse(req.body);
@@ -26,7 +35,8 @@ export const createGroup = async (req: Request, res: Response) => {
       return;
     }
 
-    const { name, currency, description, imageUrl } = result.data;
+    const { name, currency, description, imageUrl, acceptedTokens } =
+      result.data;
 
     const user = req.user;
 
@@ -61,6 +71,42 @@ export const createGroup = async (req: Request, res: Response) => {
         },
       },
     });
+
+    // Add accepted tokens if provided
+    if (acceptedTokens && acceptedTokens.length > 0) {
+      await Promise.all(
+        acceptedTokens.map(async (token, index) => {
+          const { tokenId, chainId, isDefault = index === 0 } = token;
+
+          return prisma.groupAcceptedToken.create({
+            data: {
+              groupId: group.id,
+              tokenId,
+              chainId,
+              isDefault,
+            },
+          });
+        })
+      );
+    }
+    // else {
+    //   // If no tokens provided, add user's default token if available
+    //   const userDefaultToken = await prisma.userAcceptedToken.findFirst({
+    //     where: { userId, isDefault: true },
+    //   });
+
+    //   if (userDefaultToken) {
+    //     await prisma.groupAcceptedToken.create({
+    //       data: {
+    //         groupId: group.id,
+    //         tokenId: userDefaultToken.tokenId,
+    //         chainId: userDefaultToken.chainId,
+    //         isDefault: true,
+    //       },
+    //     });
+    //   }
+    // }
+
     res.json(group);
   } catch (error) {
     console.error("Create group error:", error);
@@ -559,5 +605,172 @@ export const deleteGroup = async (
   } catch (error) {
     console.error("Delete group error:", error);
     res.status(500).json({ error: "Failed to delete group" });
+  }
+};
+
+export const getGroupAcceptedTokens = async (req: Request, res: Response) => {
+  try {
+    const { groupId } = req.params;
+    const userId = req.user!.id;
+
+    // Verify user is in the group
+    const userInGroup = await prisma.groupUser.findUnique({
+      where: {
+        groupId_userId: {
+          groupId,
+          userId,
+        },
+      },
+    });
+
+    if (!userInGroup) {
+      res.status(403).json({ error: "Not a member of this group" });
+      return;
+    }
+
+    const acceptedTokens = await prisma.$queryRaw`
+      SELECT gt.*, t.name, t.symbol, t.decimals, t.type, t.logoUrl, 
+            sc.name as chainName, sc.currency as chainCurrency, sc.logoUrl as chainLogoUrl
+      FROM "GroupAcceptedToken" gt
+      JOIN "Token" t ON gt."tokenId" = t.id
+      JOIN "SupportedChain" sc ON gt."chainId" = sc.id
+      WHERE gt."groupId" = ${groupId}
+    `;
+
+    res.json(acceptedTokens);
+  } catch (error) {
+    console.error("Get group accepted tokens error:", error);
+    res.status(500).json({ error: "Failed to fetch accepted tokens" });
+  }
+};
+
+const tokenSchema = z.object({
+  tokenId: z.string().min(1, "Token ID is required"),
+  chainId: z.string().min(1, "Chain ID is required"),
+  isDefault: z.boolean().optional(),
+});
+
+export const addGroupAcceptedToken = async (req: Request, res: Response) => {
+  try {
+    const { groupId } = req.params;
+    const result = tokenSchema.safeParse(req.body);
+
+    if (!result.success) {
+      res.status(400).json({ error: result.error.issues });
+      return;
+    }
+
+    const userId = req.user!.id;
+    const { tokenId, chainId, isDefault = false } = result.data;
+
+    // Verify user is in the group
+    const group = await prisma.group.findUnique({
+      where: { id: groupId },
+    });
+
+    if (!group) {
+      res.status(404).json({ error: "Group not found" });
+      return;
+    }
+
+    if (group.userId !== userId) {
+      res
+        .status(403)
+        .json({ error: "Only group creator can add accepted tokens" });
+      return;
+    }
+
+    // Check if token exists
+    const token = await prisma.token.findUnique({
+      where: { id: tokenId },
+    });
+
+    if (!token) {
+      res.status(404).json({ error: "Token not found" });
+      return;
+    }
+
+    // If setting as default, unset other defaults
+    if (isDefault) {
+      await prisma.$executeRaw`
+        UPDATE "GroupAcceptedToken" 
+        SET "isDefault" = false 
+        WHERE "groupId" = ${groupId} AND "isDefault" = true
+      `;
+    }
+
+    // Check if token acceptance already exists
+    const existingToken = await prisma.$queryRaw`
+      SELECT * FROM "GroupAcceptedToken" 
+      WHERE "groupId" = ${groupId} AND "tokenId" = ${tokenId} AND "chainId" = ${chainId}
+    `;
+
+    let acceptedToken;
+    if (Array.isArray(existingToken) && existingToken.length > 0) {
+      // Update
+      acceptedToken = await prisma.$executeRaw`
+        UPDATE "GroupAcceptedToken"
+        SET "isDefault" = ${isDefault}
+        WHERE "groupId" = ${groupId} AND "tokenId" = ${tokenId} AND "chainId" = ${chainId}
+        RETURNING *
+      `;
+    } else {
+      // Create
+      const id = crypto.randomUUID();
+      acceptedToken = await prisma.$executeRaw`
+        INSERT INTO "GroupAcceptedToken" ("id", "groupId", "tokenId", "chainId", "isDefault", "createdAt", "updatedAt")
+        VALUES (${id}, ${groupId}, ${tokenId}, ${chainId}, ${isDefault}, NOW(), NOW())
+        RETURNING *
+      `;
+    }
+
+    res.json(acceptedToken);
+  } catch (error) {
+    console.error("Add group accepted token error:", error);
+    res.status(500).json({ error: "Failed to add accepted token" });
+  }
+};
+
+export const removeGroupAcceptedToken = async (req: Request, res: Response) => {
+  try {
+    const { groupId, tokenId } = req.params;
+    const userId = req.user!.id;
+
+    // Verify user is in the group
+    const group = await prisma.group.findUnique({
+      where: { id: groupId },
+    });
+
+    if (!group) {
+      res.status(404).json({ error: "Group not found" });
+      return;
+    }
+
+    if (group.userId !== userId) {
+      res
+        .status(403)
+        .json({ error: "Only group creator can remove accepted tokens" });
+      return;
+    }
+
+    const token = await prisma.$queryRaw`
+      SELECT * FROM "GroupAcceptedToken"
+      WHERE "id" = ${tokenId}
+    `;
+
+    if (!Array.isArray(token) || token.length === 0) {
+      res.status(404).json({ error: "Token not found" });
+      return;
+    }
+
+    await prisma.$executeRaw`
+      DELETE FROM "GroupAcceptedToken"
+      WHERE "id" = ${tokenId}
+    `;
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error("Remove group accepted token error:", error);
+    res.status(500).json({ error: "Failed to remove accepted token" });
   }
 };

@@ -7,8 +7,8 @@ import { groupRouter } from "./routes/group.routes";
 import { fileRouter } from "./routes/file.routes";
 import { multiChainRouter } from "./routes/multichain.routes";
 import { currencyRouter } from "./routes/currency.routes";
-import { enhancedExpenseRouter } from "./routes/enhanced-expense.routes";
 import { pricingRouter } from "./routes/pricing.routes";
+import { expenseRouter } from "./routes/expense.routes";
 import { errorHandler } from "./middleware/errorHandler";
 import { initializeMultiChainSystem } from "./services/initialize-multichain";
 import { initializeFiatCurrencies } from "./services/currency.service";
@@ -50,10 +50,9 @@ app.get("/api/me", async (req, res) => {
 app.use("/api/users", userRouter);
 app.use("/api/groups", groupRouter);
 app.use("/api/files", fileRouter);
-
+app.use("/api/expenses", expenseRouter);
 app.use("/api/multichain", multiChainRouter);
 app.use("/api/currencies", currencyRouter);
-app.use("/api/enhanced-expenses", enhancedExpenseRouter);
 app.use("/api/pricing", pricingRouter);
 
 app.use(errorHandler);

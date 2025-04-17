@@ -9,6 +9,8 @@ import { SplitType } from "@prisma/client";
 import { auth } from "../lib/auth";
 import { fromNodeHeaders } from "better-auth/node";
 import { checkAccountExists } from "../utils/stellar";
+import { z } from "zod";
+import crypto from "crypto";
 
 export const getCurrentUser = async (req: Request, res: Response) => {
   res.json(req.user);
@@ -386,5 +388,135 @@ export const getFriends = async (
   } catch (error) {
     console.error("Get friends error:", error);
     res.status(500).json({ error: "Failed to fetch friends" });
+  }
+};
+
+export const getUserAcceptedTokens = async (req: Request, res: Response) => {
+  try {
+    const userId = req.user!.id;
+
+    const acceptedTokens = await prisma.$queryRaw`
+      SELECT ut.*, t.name, t.symbol, t.decimals, t.type, t.logoUrl, 
+             sc.name as chainName, sc.currency as chainCurrency, sc.logoUrl as chainLogoUrl
+      FROM "UserAcceptedToken" ut
+      JOIN "Token" t ON ut."tokenId" = t.id
+      JOIN "SupportedChain" sc ON ut."chainId" = sc.id
+      WHERE ut."userId" = ${userId}
+    `;
+
+    res.json(acceptedTokens);
+  } catch (error) {
+    console.error("Get user accepted tokens error:", error);
+    res.status(500).json({ error: "Failed to fetch accepted tokens" });
+  }
+};
+
+const tokenSchema = z.object({
+  tokenId: z.string().min(1, "Token ID is required"),
+  chainId: z.string().min(1, "Chain ID is required"),
+  isDefault: z.boolean().optional(),
+});
+
+export const addUserAcceptedToken = async (req: Request, res: Response) => {
+  try {
+    const result = tokenSchema.safeParse(req.body);
+
+    if (!result.success) {
+      res.status(400).json({ error: result.error.issues });
+      return;
+    }
+
+    const userId = req.user!.id;
+    const { tokenId, chainId, isDefault = false } = result.data;
+
+    // Check if token exists
+    const token = await prisma.token.findUnique({
+      where: { id: tokenId },
+    });
+
+    if (!token) {
+      res.status(404).json({ error: "Token not found" });
+      return;
+    }
+
+    // Check if chain exists
+    const chain = await prisma.supportedChain.findUnique({
+      where: { id: chainId },
+    });
+
+    if (!chain) {
+      res.status(404).json({ error: "Chain not found" });
+      return;
+    }
+
+    // If setting as default, unset other defaults
+    if (isDefault) {
+      await prisma.$executeRaw`
+        UPDATE "UserAcceptedToken" 
+        SET "isDefault" = false 
+        WHERE "userId" = ${userId} AND "isDefault" = true
+      `;
+    }
+
+    // Check if the token acceptance already exists
+    const existingToken = await prisma.$queryRaw`
+      SELECT * FROM "UserAcceptedToken"
+      WHERE "userId" = ${userId} AND "tokenId" = ${tokenId} AND "chainId" = ${chainId}
+    `;
+
+    let acceptedToken;
+    if (Array.isArray(existingToken) && existingToken.length > 0) {
+      // Update existing
+      acceptedToken = await prisma.$executeRaw`
+        UPDATE "UserAcceptedToken"
+        SET "isDefault" = ${isDefault}
+        WHERE "userId" = ${userId} AND "tokenId" = ${tokenId} AND "chainId" = ${chainId}
+        RETURNING *
+      `;
+    } else {
+      // Create new
+      acceptedToken = await prisma.$executeRaw`
+        INSERT INTO "UserAcceptedToken" ("id", "userId", "tokenId", "chainId", "isDefault", "createdAt", "updatedAt")
+        VALUES (${crypto.randomUUID()}, ${userId}, ${tokenId}, ${chainId}, ${isDefault}, NOW(), NOW())
+        RETURNING *
+      `;
+    }
+
+    res.json(acceptedToken);
+  } catch (error) {
+    console.error("Add user accepted token error:", error);
+    res.status(500).json({ error: "Failed to add accepted token" });
+  }
+};
+
+export const removeUserAcceptedToken = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user!.id;
+
+    const token = await prisma.$queryRaw`
+      SELECT * FROM "UserAcceptedToken"
+      WHERE "id" = ${id}
+    `;
+
+    if (!Array.isArray(token) || token.length === 0) {
+      res.status(404).json({ error: "Token not found" });
+      return;
+    }
+
+    if (token[0].userId !== userId) {
+      res.status(403).json({ error: "Not authorized" });
+      return;
+    }
+
+    await prisma.$executeRaw`
+      DELETE FROM "UserAcceptedToken"
+      WHERE "id" = ${id}
+    `;
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error("Remove user accepted token error:", error);
+    res.status(500).json({ error: "Failed to remove accepted token" });
   }
 };

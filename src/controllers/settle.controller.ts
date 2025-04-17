@@ -15,6 +15,8 @@ const settleDebtSchemaCreate = z.object({
   groupId: z.string().min(1, "Group id is required"),
   settleWithId: z.string().optional(),
   address: z.string().min(1, "Address is required"),
+  selectedTokenId: z.string().optional(),
+  selectedChainId: z.string().optional(),
 });
 
 export const settleDebtCreateTransaction = async (
@@ -28,7 +30,8 @@ export const settleDebtCreateTransaction = async (
     return;
   }
 
-  const { groupId, address, settleWithId } = result.data;
+  const { groupId, address, settleWithId, selectedTokenId, selectedChainId } =
+    result.data;
 
   const userId = req.user!.id;
 
@@ -67,61 +70,214 @@ export const settleDebtCreateTransaction = async (
       return;
     }
 
-    // Validate all friends have Stellar accounts
+    // Determine settlement token based on selection or preferences
+    let settlementToken;
+    let settlementChain;
+
+    if (selectedTokenId && selectedChainId) {
+      // Use selected token if provided
+      settlementToken = await prisma.token.findUnique({
+        where: { id: selectedTokenId },
+        include: { chain: true },
+      });
+
+      if (!settlementToken) {
+        res.status(404).json({ error: "Selected token not found" });
+        return;
+      }
+
+      settlementChain = settlementToken.chain;
+    } else {
+      // Try to find a token accepted by all parties
+      let acceptableTokens: any = [];
+
+      // If settling with specific friend
+      if (settleWithId) {
+        // Get friend's accepted tokens
+        const friendAcceptedTokens = await prisma.userAcceptedToken.findMany({
+          where: { userId: settleWithId },
+          include: { token: true, chain: true },
+        });
+
+        if (friendAcceptedTokens.length > 0) {
+          acceptableTokens = friendAcceptedTokens.map((t) => ({
+            token: t.token,
+            chain: t.chain,
+            isDefault: t.isDefault,
+          }));
+        }
+      } else {
+        // Get group's accepted tokens
+        const groupAcceptedTokens = await prisma.groupAcceptedToken.findMany({
+          where: { groupId },
+          include: { token: true, chain: true },
+        });
+
+        if (groupAcceptedTokens.length > 0) {
+          acceptableTokens = groupAcceptedTokens.map((t) => ({
+            token: t.token,
+            chain: t.chain,
+            isDefault: t.isDefault,
+          }));
+        }
+      }
+
+      // If no tokens found, use Stellar XLM as default
+      if (acceptableTokens.length === 0) {
+        // Get Stellar chain and XLM token
+        const stellarChain = await prisma.supportedChain.findFirst({
+          where: { id: "stellar" },
+        });
+
+        const xlmToken = await prisma.token.findFirst({
+          where: {
+            chainId: "stellar",
+            symbol: "XLM",
+          },
+        });
+
+        if (!stellarChain || !xlmToken) {
+          res
+            .status(500)
+            .json({ error: "Default settlement token not configured" });
+          return;
+        }
+
+        settlementToken = xlmToken;
+        settlementChain = stellarChain;
+      } else {
+        // Find default token or use first one
+        const defaultToken = acceptableTokens.find((t: any) => t.isDefault);
+
+        if (defaultToken) {
+          settlementToken = defaultToken.token;
+          settlementChain = defaultToken.chain;
+        } else {
+          settlementToken = acceptableTokens[0].token;
+          settlementChain = acceptableTokens[0].chain;
+        }
+      }
+    }
+
+    // Validate all friends have accounts on the selected chain
     for (const balance of toPay) {
-      if (!balance.friend.stellarAccount) {
+      if (!balance.friend.stellarAccount && settlementChain.id === "stellar") {
         res.status(400).json({
           error: `Friend ${balance.friend.name} has no Stellar account`,
         });
         return;
       }
+
+      // If using other chains, check the corresponding account
+      if (settlementChain.id !== "stellar") {
+        const friendChainAccount = await prisma.chainAccount.findFirst({
+          where: {
+            userId: balance.firendId,
+            chainId: settlementChain.id,
+          },
+        });
+
+        if (!friendChainAccount) {
+          res.status(400).json({
+            error: `Friend ${balance.friend.name} has no ${settlementChain.name} account`,
+          });
+          return;
+        }
+      }
     }
 
-    const toPayInXLM = await Promise.all(
+    const toPayInSettlementToken = await Promise.all(
       toPay.map(async (balance) => {
-        let xlmAmount: string = "0";
-        if (balance.currency === "USD") {
-          xlmAmount = await convertUsdToXLM(balance.amount);
+        let convertedAmount: string = "0";
+        let tokenAmount: number = 0;
+
+        // Convert from USD or other currencies to settlement token
+        if (balance.currency === "USD" && settlementToken.symbol === "XLM") {
+          // Use existing conversion for USD to XLM
+          convertedAmount = await convertUsdToXLM(balance.amount);
+          tokenAmount = Number(convertedAmount);
+        } else if (balance.currency === "USD") {
+          // TODO: Implement conversion from USD to other tokens
+          // For now, just use a 1:1 conversion
+          tokenAmount = balance.amount;
+          convertedAmount = balance.amount.toString();
         } else {
-          xlmAmount = balance.amount.toString();
+          // Same token, no conversion needed
+          tokenAmount = balance.amount;
+          convertedAmount = balance.amount.toString();
         }
+
         return {
-          address: balance.friend.stellarAccount!,
-          amount: xlmAmount.toString(),
+          address: balance.friend.stellarAccount || "", // Will be replaced with chain-specific address
+          amount: convertedAmount.toString(),
           originalAmount: balance.amount,
           originalCurrency: balance.currency,
           friendId: balance.firendId,
-          xlmAmount: Number(xlmAmount),
+          tokenAmount: tokenAmount,
         };
       })
     );
 
-    const totalAmount = toPayInXLM.reduce(
-      (acc, balance) => acc + Number(balance.xlmAmount),
+    // For non-Stellar chains, get the proper recipient addresses
+    if (settlementChain.id !== "stellar") {
+      for (let i = 0; i < toPayInSettlementToken.length; i++) {
+        const payment = toPayInSettlementToken[i];
+        const friendChainAccount = await prisma.chainAccount.findFirst({
+          where: {
+            userId: payment.friendId,
+            chainId: settlementChain.id,
+          },
+        });
+
+        if (friendChainAccount) {
+          toPayInSettlementToken[i].address = friendChainAccount.address;
+        }
+      }
+    }
+
+    const totalAmount = toPayInSettlementToken.reduce(
+      (acc, balance) => acc + Number(balance.tokenAmount),
       0
     );
 
+    // Check if user has enough balance for settlement
     const accountBalance = await checkAccountBalance(address);
 
     console.log("accountBalance", accountBalance);
 
-    const XLM_BALANCE = Number(
-      accountBalance.find((balance) => balance.asset_type === "native")
-        ?.balance || 0
-    );
+    // This is Stellar-specific, modify for other chains
+    const tokenBalance =
+      settlementChain.id === "stellar"
+        ? Number(
+            accountBalance.find((balance) => balance.asset_type === "native")
+              ?.balance || 0
+          )
+        : 0; // For other chains, implement balance checking
 
-    if (XLM_BALANCE < totalAmount) {
+    if (tokenBalance < totalAmount && settlementChain.id === "stellar") {
       res.status(400).json({ error: "Insufficient balance" });
       return;
     }
 
-    const transaction = await createSerializedTransaction(
-      address,
-      toPayInXLM.map((balance) => ({
-        address: balance.address,
-        amount: balance.amount,
-      }))
-    );
+    // Create transaction
+    let transaction;
+
+    // For now, only implement Stellar transaction creation
+    if (settlementChain.id === "stellar") {
+      transaction = await createSerializedTransaction(
+        address,
+        toPayInSettlementToken.map((balance) => ({
+          address: balance.address,
+          amount: balance.amount,
+        }))
+      );
+    } else {
+      // TODO: Implement transaction creation for other chains
+      res
+        .status(400)
+        .json({ error: "Settlement on this chain not yet implemented" });
+      return;
+    }
 
     // Store the transaction details in the database
     const settlementTransaction = await prisma.settlementTransaction.create({
@@ -131,16 +287,17 @@ export const settleDebtCreateTransaction = async (
         serializedTx: transaction.serializedTx,
         settleWithId: settleWithId,
         status: "PENDING",
-        chainId: "stellar",
+        chainId: settlementChain.id,
+        tokenId: settlementToken.id,
         settlementItems: {
-          create: toPayInXLM.map((item) => ({
+          create: toPayInSettlementToken.map((item) => ({
             userId: userId,
             friendId: item.friendId,
             originalAmount: item.originalAmount,
             originalCurrency: item.originalCurrency,
-            xlmAmount: item.xlmAmount,
-            amount: item.xlmAmount,
-            currency: "XLM",
+            xlmAmount: item.tokenAmount, // For backward compatibility
+            amount: item.tokenAmount,
+            currency: settlementToken.symbol,
             friend: {
               connect: {
                 id: item.friendId,
@@ -155,6 +312,8 @@ export const settleDebtCreateTransaction = async (
       serializedTx: transaction.serializedTx,
       txHash: transaction.txHash,
       settlementId: settlementTransaction.id,
+      tokenSymbol: settlementToken.symbol,
+      chainName: settlementChain.name,
     });
   } catch (error) {
     console.error("Create settlement transaction error:", error);
@@ -317,5 +476,105 @@ export const settleDebtSubmitTransaction = async (
     }
 
     res.status(500).json({ error: "Failed to submit transaction" });
+  }
+};
+
+export const getSettlementTokenOptions = async (
+  req: Request,
+  res: Response
+) => {
+  try {
+    const { groupId, settleWithId } = req.query;
+    const userId = req.user!.id;
+
+    if (!groupId) {
+      res.status(400).json({ error: "Group ID is required" });
+      return;
+    }
+
+    // Find tokens accepted by all parties
+    let tokensToReturn = [];
+
+    // Get group's accepted tokens
+    const groupAcceptedTokens = await prisma.$queryRaw`
+      SELECT gt.*, t.name, t.symbol, t.decimals, t.type, t.logoUrl, 
+             sc.name as chainName, sc.currency as chainCurrency, sc.logoUrl as chainLogoUrl
+      FROM "GroupAcceptedToken" gt
+      JOIN "Token" t ON gt."tokenId" = t.id
+      JOIN "SupportedChain" sc ON gt."chainId" = sc.id
+      WHERE gt."groupId" = ${groupId}
+    `;
+
+    if (Array.isArray(groupAcceptedTokens) && groupAcceptedTokens.length > 0) {
+      tokensToReturn.push({
+        source: "Group",
+        tokens: groupAcceptedTokens,
+      });
+    }
+
+    // If settling with specific user, add their tokens
+    if (settleWithId) {
+      const friendAcceptedTokens = await prisma.$queryRaw`
+        SELECT ut.*, t.name, t.symbol, t.decimals, t.type, t.logoUrl, 
+               sc.name as chainName, sc.currency as chainCurrency, sc.logoUrl as chainLogoUrl
+        FROM "UserAcceptedToken" ut
+        JOIN "Token" t ON ut."tokenId" = t.id
+        JOIN "SupportedChain" sc ON ut."chainId" = sc.id
+        WHERE ut."userId" = ${settleWithId}
+      `;
+
+      if (
+        Array.isArray(friendAcceptedTokens) &&
+        friendAcceptedTokens.length > 0
+      ) {
+        tokensToReturn.push({
+          source: "Friend",
+          tokens: friendAcceptedTokens,
+        });
+      }
+    }
+
+    // Add current user's tokens
+    const userAcceptedTokens = await prisma.$queryRaw`
+      SELECT ut.*, t.name, t.symbol, t.decimals, t.type, t.logoUrl, 
+             sc.name as chainName, sc.currency as chainCurrency, sc.logoUrl as chainLogoUrl
+      FROM "UserAcceptedToken" ut
+      JOIN "Token" t ON ut."tokenId" = t.id
+      JOIN "SupportedChain" sc ON ut."chainId" = sc.id
+      WHERE ut."userId" = ${userId}
+    `;
+
+    if (Array.isArray(userAcceptedTokens) && userAcceptedTokens.length > 0) {
+      tokensToReturn.push({
+        source: "Your Preferences",
+        tokens: userAcceptedTokens,
+      });
+    }
+
+    // If no tokens found, add default Stellar XLM token
+    if (tokensToReturn.length === 0) {
+      const defaultTokens = await prisma.$queryRaw`
+        SELECT t.id as "tokenId", t.name, t.symbol, t.decimals, t.type, t.logoUrl, 
+               sc.id as "chainId", sc.name as chainName, sc.currency as chainCurrency, sc.logoUrl as chainLogoUrl,
+               true as "isDefault"
+        FROM "Token" t
+        JOIN "SupportedChain" sc ON t."chainId" = sc.id
+        WHERE sc.id = 'stellar' AND t.symbol = 'XLM'
+      `;
+
+      if (Array.isArray(defaultTokens) && defaultTokens.length > 0) {
+        tokensToReturn.push({
+          source: "Default Options",
+          tokens: defaultTokens,
+        });
+      }
+    }
+
+    res.json({
+      options: tokensToReturn,
+    });
+  } catch (error) {
+    console.error("Get settlement token options error:", error);
+    res.status(500).json({ error: "Failed to get settlement token options" });
   }
 };
