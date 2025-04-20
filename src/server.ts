@@ -52,7 +52,7 @@ app.use("/api/groups", groupRouter);
 app.use("/api/files", fileRouter);
 app.use("/api/expenses", expenseRouter);
 app.use("/api/multichain", multiChainRouter);
-app.use("/api/currencies", currencyRouter);
+app.use("/api/currency", currencyRouter);
 app.use("/api/pricing", pricingRouter);
 
 app.use(errorHandler);

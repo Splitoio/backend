@@ -17,7 +17,9 @@ export const httpLogger = pinoHttp({
     req: (req) => ({
       method: req.method,
       url: req.url,
-      userAgent: req.headers["user-agent"],
+    }),
+    res: (res) => ({
+      statusCode: res.statusCode,
     }),
   },
   // Simplify messaging
