@@ -72,6 +72,54 @@ A Node.js backend service for the Splito application using Express, TypeScript, 
 - **Prisma Studio**: Run `npm run prisma:studio` to access the database UI at http://localhost:5555
 - **Local PostgreSQL**: Accessible at `postgresql://postgres:postgres@localhost:5432/splito`
 
+## Core Features
+
+### Expense Splitting
+
+The platform allows users to split expenses with friends and track balances in multiple currencies.
+
+### Reminders
+
+The app includes a reminder system to notify users about pending payments:
+
+- **Send Reminders**: Users can send payment reminders to friends
+- **Track Reminders**: View sent and received reminders
+
+**Testing Reminders API:**
+
+```bash
+# Send a reminder
+curl -X POST http://localhost:4000/api/users/reminders \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_AUTH_TOKEN" \
+  -d '{
+    "toUserId": "USER_ID_OF_RECIPIENT",
+    "amount": 100,
+    "currency": "USD",
+    "message": "Please pay for dinner",
+    "type": "PAYMENT"
+  }'
+
+# Get all reminders (sent and received)
+curl -X GET http://localhost:4000/api/users/reminders \
+  -H "Authorization: Bearer YOUR_AUTH_TOKEN"
+```
+
+### Analytics
+
+The platform provides expense analytics to help users track spending patterns:
+
+- **Monthly Summary**: View amounts owed, lent, and settled within the current month
+- **Currency Breakdown**: All analytics are grouped by currency
+
+**Testing Analytics API:**
+
+```bash
+# Get user analytics
+curl -X GET http://localhost:4000/api/users/analytics \
+  -H "Authorization: Bearer YOUR_AUTH_TOKEN"
+```
+
 ## Deployment
 
 ### Docker Build and Push

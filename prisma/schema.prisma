@@ -86,6 +86,8 @@ model User {
   receiveSettlements        SettlementTransaction[] @relation("SettlementWithUser")
   settlementItemsAsPayer    SettlementItem[]        @relation("SettlementItemUser")
   settlementItemsAsReceiver SettlementItem[]        @relation("SettlementItemFriend")
+  sentReminders             Reminder[]              @relation("SentReminders")
+  receivedReminders         Reminder[]              @relation("ReceivedReminders")
 
   @@map("user")
 }
@@ -253,6 +255,7 @@ model Expense {
   updatedByUser       User?                @relation(name: "UpdatedByUser", fields: [updatedBy], references: [id], onDelete: SetNull)
   expenseParticipants ExpenseParticipant[]
   expenseNotes        ExpenseNote[]
+  reminders           Reminder[]
 
   @@index([groupId])
   @@index([paidBy])
@@ -393,4 +396,23 @@ model GroupAcceptedToken {
   @@unique([groupId, tokenId, chainId])
   @@index([groupId])
   @@index([tokenId])
+}
+
+// Add Reminder model after the existing models
+model Reminder {
+  id          String   @id @default(cuid())
+  fromUserId  String
+  toUserId    String
+  amount      Float
+  currency    String
+  message     String
+  type        String   // "PAYMENT" or "SETTLEMENT"
+  status      String   // "PENDING", "COMPLETED", etc.
+  expenseId   String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  fromUser    User     @relation(name: "SentReminders", fields: [fromUserId], references: [id], onDelete: Cascade)
+  toUser      User     @relation(name: "ReceivedReminders", fields: [toUserId], references: [id], onDelete: Cascade)
+  expense     Expense? @relation(fields: [expenseId], references: [id], onDelete: SetNull)
 }

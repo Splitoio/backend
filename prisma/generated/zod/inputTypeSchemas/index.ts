@@ -22,6 +22,7 @@ export { SettlementItemScalarFieldEnumSchema } from './SettlementItemScalarField
 export { FiatCurrencyScalarFieldEnumSchema } from './FiatCurrencyScalarFieldEnumSchema';
 export { UserAcceptedTokenScalarFieldEnumSchema } from './UserAcceptedTokenScalarFieldEnumSchema';
 export { GroupAcceptedTokenScalarFieldEnumSchema } from './GroupAcceptedTokenScalarFieldEnumSchema';
+export { ReminderScalarFieldEnumSchema } from './ReminderScalarFieldEnumSchema';
 export { SortOrderSchema } from './SortOrderSchema';
 export { QueryModeSchema } from './QueryModeSchema';
 export { NullsOrderSchema } from './NullsOrderSchema';

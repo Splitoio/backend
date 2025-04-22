@@ -20,3 +20,4 @@ export * from './SettlementItemSchema';
 export * from './FiatCurrencySchema';
 export * from './UserAcceptedTokenSchema';
 export * from './GroupAcceptedTokenSchema';
+export * from './ReminderSchema';

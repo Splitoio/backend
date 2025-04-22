@@ -12,6 +12,9 @@ import {
   getUserAcceptedTokens,
   addUserAcceptedToken,
   removeUserAcceptedToken,
+  getAnalytics,
+  sendReminder,
+  getReminders,
 } from "../controllers/user.controller";
 
 const router = Router();
@@ -28,6 +31,11 @@ router.post("/friends/add", addFriend);
 router.post("/expenses", addOrEditExpense);
 router.get("/friends/:friendId/expenses", getExpensesWithFriend);
 router.patch("/profile", updateUserDetails);
+router.get("/analytics", getAnalytics);
+
+// Reminder routes
+router.post("/reminders", sendReminder);
+router.get("/reminders", getReminders);
 
 // Token acceptance routes
 router.get("/accepted-tokens", getUserAcceptedTokens);

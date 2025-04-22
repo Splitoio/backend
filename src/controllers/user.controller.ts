@@ -5,12 +5,31 @@ import {
   editExpense,
   getCompleteFriendsDetails,
 } from "../services/split.service";
-import { SplitType } from "@prisma/client";
+import { PrismaClient } from "@prisma/client";
 import { auth } from "../lib/auth";
 import { fromNodeHeaders } from "better-auth/node";
 import { checkAccountExists } from "../utils/stellar";
 import { z } from "zod";
 import crypto from "crypto";
+
+// Define the Reminder schema directly since we don't have it in generated models
+const CreateReminderSchema = z.object({
+  toUserId: z.string(),
+  amount: z.number().positive(),
+  currency: z.string(),
+  message: z.string().optional(),
+  type: z.enum(["PAYMENT", "SETTLEMENT"]),
+});
+
+// Extract the SplitType enum from the Prisma schema
+enum SplitType {
+  EQUAL = "EQUAL",
+  PERCENTAGE = "PERCENTAGE",
+  EXACT = "EXACT",
+  SHARE = "SHARE",
+  ADJUSTMENT = "ADJUSTMENT",
+  SETTLEMENT = "SETTLEMENT",
+}
 
 export const getCurrentUser = async (req: Request, res: Response) => {
   res.json(req.user);
@@ -518,5 +537,292 @@ export const removeUserAcceptedToken = async (req: Request, res: Response) => {
   } catch (error) {
     console.error("Remove user accepted token error:", error);
     res.status(500).json({ error: "Failed to remove accepted token" });
+  }
+};
+
+export const getAnalytics = async (req: Request, res: Response) => {
+  const userId = req.user!.id;
+
+  try {
+    // Get current month range
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const endOfMonth = new Date(
+      now.getFullYear(),
+      now.getMonth() + 1,
+      0,
+      23,
+      59,
+      59,
+      999
+    );
+
+    // Get expenses where user owes money this month
+    const expensesOwed = await prisma.expenseParticipant.findMany({
+      where: {
+        userId,
+        expense: {
+          paidBy: { not: userId },
+          expenseDate: {
+            gte: startOfMonth,
+            lte: endOfMonth,
+          },
+          deletedBy: null,
+        },
+      },
+      include: {
+        expense: true,
+      },
+    });
+
+    // Get expenses where user lent money this month
+    const expensesLent = await prisma.expenseParticipant.findMany({
+      where: {
+        userId: { not: userId },
+        expense: {
+          paidBy: userId,
+          expenseDate: {
+            gte: startOfMonth,
+            lte: endOfMonth,
+          },
+          deletedBy: null,
+        },
+      },
+      include: {
+        expense: true,
+      },
+    });
+
+    // Get settlements completed this month
+    const settlementsCompleted = await prisma.settlementTransaction.findMany({
+      where: {
+        settleWithId: userId,
+        status: "COMPLETED",
+        completedAt: {
+          gte: startOfMonth,
+          lte: endOfMonth,
+        },
+      },
+      include: {
+        settlementItems: true,
+      },
+    });
+
+    // Calculate totals by currency
+    const owedByCurrency: Record<string, number> = {};
+    const lentByCurrency: Record<string, number> = {};
+    const settledByCurrency: Record<string, number> = {};
+
+    // Process owed expenses
+    expensesOwed.forEach(
+      (participant: { amount: number; expense: { currency: string } }) => {
+        const { currency } = participant.expense;
+        if (!owedByCurrency[currency]) {
+          owedByCurrency[currency] = 0;
+        }
+        owedByCurrency[currency] += participant.amount;
+      }
+    );
+
+    // Process lent expenses
+    expensesLent.forEach(
+      (participant: { amount: number; expense: { currency: string } }) => {
+        const { currency } = participant.expense;
+        if (!lentByCurrency[currency]) {
+          lentByCurrency[currency] = 0;
+        }
+        lentByCurrency[currency] += participant.amount;
+      }
+    );
+
+    // Process settlements
+    settlementsCompleted.forEach(
+      (settlement: {
+        settlementItems: Array<{ currency: string; amount: number }>;
+      }) => {
+        settlement.settlementItems.forEach(
+          (item: { currency: string; amount: number }) => {
+            // Use the currency as originalCurrency and amount as originalAmount
+            const currency = item.currency;
+            const amount = item.amount;
+
+            if (!settledByCurrency[currency]) {
+              settledByCurrency[currency] = 0;
+            }
+            settledByCurrency[currency] += amount;
+          }
+        );
+      }
+    );
+
+    // Format results
+    const youOwed = Object.entries(owedByCurrency).map(
+      ([currency, amount]) => ({
+        currency,
+        amount,
+      })
+    );
+
+    const youLent = Object.entries(lentByCurrency).map(
+      ([currency, amount]) => ({
+        currency,
+        amount,
+      })
+    );
+
+    const youSettled = Object.entries(settledByCurrency).map(
+      ([currency, amount]) => ({
+        currency,
+        amount,
+      })
+    );
+
+    res.json({
+      thisMonth: {
+        youOwed,
+        youLent,
+        youSettled,
+      },
+    });
+  } catch (error) {
+    console.error("Get analytics error:", error);
+    res.status(500).json({ error: "Failed to fetch analytics data" });
+  }
+};
+
+// Reminders
+export const sendReminder = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  const fromUserId = req.user!.id;
+
+  try {
+    // Validate input using Zod schema
+    const validationResult = CreateReminderSchema.safeParse(req.body);
+
+    if (!validationResult.success) {
+      res.status(400).json({
+        error: "Invalid input data",
+        details: validationResult.error.format(),
+      });
+      return;
+    }
+
+    const { toUserId, amount, currency, message, type } = validationResult.data;
+
+    // Check if receiver exists
+    const receiver = await prisma.user.findUnique({
+      where: { id: toUserId },
+    });
+
+    if (!receiver) {
+      res.status(404).json({ error: "Recipient user not found" });
+      return;
+    }
+
+    // NOTE: The Reminder model doesn't exist in Prisma schema yet
+    // Temporary response until the model is added
+    res.status(501).json({
+      message:
+        "Reminder functionality not implemented - Reminder model missing from Prisma schema",
+      data: {
+        fromUserId,
+        toUserId,
+        amount,
+        currency,
+        message: message || "",
+        type,
+        status: "PENDING",
+      },
+    });
+
+    /* Uncomment after adding Reminder model to Prisma schema
+    // Create reminder
+    const reminder = await prisma.reminder.create({
+      data: {
+        fromUserId,
+        toUserId,
+        amount,
+        currency,
+        message: message || "",
+        type,
+        status: "PENDING",
+      },
+    });
+
+    res.status(201).json(reminder);
+    */
+  } catch (error) {
+    console.error("Send reminder error:", error);
+    res.status(500).json({ error: "Failed to send reminder" });
+  }
+};
+
+export const getReminders = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  const userId = req.user!.id;
+
+  try {
+    // NOTE: The Reminder model doesn't exist in Prisma schema yet
+    // Return empty results until the model is added
+    res.json({
+      sent: [],
+      received: [],
+      message:
+        "Reminder functionality not implemented - Reminder model missing from Prisma schema",
+    });
+
+    /* Uncomment after adding Reminder model to Prisma schema
+    // Get reminders sent by user
+    const sentReminders = await prisma.reminder.findMany({
+      where: {
+        fromUserId: userId,
+      },
+      include: {
+        toUser: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            image: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+    });
+
+    // Get reminders received by user
+    const receivedReminders = await prisma.reminder.findMany({
+      where: {
+        toUserId: userId,
+      },
+      include: {
+        fromUser: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            image: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+    });
+
+    res.json({
+      sent: sentReminders,
+      received: receivedReminders,
+    });
+    */
+  } catch (error) {
+    console.error("Get reminders error:", error);
+    res.status(500).json({ error: "Failed to fetch reminders" });
   }
 };

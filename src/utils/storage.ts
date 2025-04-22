@@ -3,20 +3,48 @@ import { v4 as uuidv4 } from "uuid";
 import path from "path";
 import { env } from "../config/env";
 import { logger } from "./logger";
-// Create a storage client
-const storage = new Storage({
-  projectId: env.GOOGLE_CLOUD_PROJECT_ID,
-  credentials: JSON.parse(env.GOOGLE_CLOUD_CREDENTIALS || "{}"),
-});
+import fs from "fs";
+import { promisify } from "util";
 
-const bucket = storage.bucket(env.GOOGLE_CLOUD_BUCKET_NAME || "");
+// Check if we have a valid bucket name
+const hasBucketConfig = !!env.GOOGLE_CLOUD_BUCKET_NAME;
+
+// Create storage client only if we have valid bucket config
+const storage = hasBucketConfig
+  ? new Storage({
+      projectId: env.GOOGLE_CLOUD_PROJECT_ID,
+      credentials: JSON.parse(env.GOOGLE_CLOUD_CREDENTIALS || "{}"),
+    })
+  : null;
+
+// Create a bucket reference or use a mock if not available
+const bucket = hasBucketConfig
+  ? storage!.bucket(env.GOOGLE_CLOUD_BUCKET_NAME!)
+  : null;
+
+// Create local directories for mock storage if real bucket not available
+if (!hasBucketConfig) {
+  // Create a uploads directory for local storage
+  const uploadsDir = path.join(process.cwd(), "uploads");
+  if (!fs.existsSync(uploadsDir)) {
+    fs.mkdirSync(uploadsDir, { recursive: true });
+  }
+  logger.info(
+    "Using local file system storage instead of Google Cloud Storage"
+  );
+}
 
 /**
  * Sets CORS configuration on the bucket to allow cross-origin requests
  */
 const configureBucketCors = async () => {
+  if (!hasBucketConfig) {
+    logger.info("Skipping CORS configuration for local storage");
+    return;
+  }
+
   try {
-    await bucket.setCorsConfiguration([
+    await bucket!.setCorsConfiguration([
       {
         maxAgeSeconds: 3600,
         method: ["GET", "PUT", "POST", "DELETE", "HEAD"],
@@ -38,10 +66,24 @@ const configureBucketCors = async () => {
   }
 };
 
-// Set CORS configuration when this module loads
-configureBucketCors().catch((err) => {
-  console.error("Failed to set CORS configuration on GCS bucket:", err);
-});
+// Set CORS configuration when this module loads (only if using real bucket)
+if (hasBucketConfig) {
+  configureBucketCors().catch((err) => {
+    console.error("Failed to set CORS configuration on GCS bucket:", err);
+  });
+}
+
+/**
+ * Mock implementation for local file storage
+ */
+const generateLocalUploadUrl = (fileName: string): string => {
+  // For local development, return a URL to a local endpoint
+  return `${env.BACKEND_URL}/api/upload/${fileName}`;
+};
+
+const getLocalFilePath = (filePath: string): string => {
+  return path.join(process.cwd(), "uploads", filePath);
+};
 
 /**
  * Generate a signed URL for uploading a file to Google Cloud Storage
@@ -62,6 +104,15 @@ export const generateUploadUrl = async (
 
   const fileName = `${folder}/${uuidv4()}${extension}`;
 
+  // If using local storage, return mock URLs
+  if (!hasBucketConfig) {
+    return {
+      uploadUrl: generateLocalUploadUrl(fileName),
+      filePath: fileName,
+      downloadUrl: `${env.BACKEND_URL}/api/files/${fileName}`,
+    };
+  }
+
   // Set options for generating signed URL
   const options = {
     version: "v4" as const,
@@ -71,7 +122,7 @@ export const generateUploadUrl = async (
   };
 
   // Generate signed URL for uploading
-  const [uploadUrl] = await bucket.file(fileName).getSignedUrl(options);
+  const [uploadUrl] = await bucket!.file(fileName).getSignedUrl(options);
 
   return {
     uploadUrl,
@@ -92,13 +143,18 @@ export const generateDownloadUrl = async (
     throw new Error("File path is required");
   }
 
+  // If using local storage, return a mock URL
+  if (!hasBucketConfig) {
+    return `${env.BACKEND_URL}/api/files/${filePath}`;
+  }
+
   const options = {
     version: "v4" as const,
     action: "read" as const,
     expires: Date.now() + 60 * 60 * 1000, // 1 hour
   };
 
-  const [downloadUrl] = await bucket.file(filePath).getSignedUrl(options);
+  const [downloadUrl] = await bucket!.file(filePath).getSignedUrl(options);
   return downloadUrl;
 };
 
@@ -110,7 +166,12 @@ export const generateDownloadUrl = async (
 export const fileExists = async (filePath: string): Promise<boolean> => {
   if (!filePath) return false;
 
-  const [exists] = await bucket.file(filePath).exists();
+  // For local storage, check if file exists on disk
+  if (!hasBucketConfig) {
+    return fs.existsSync(getLocalFilePath(filePath));
+  }
+
+  const [exists] = await bucket!.file(filePath).exists();
   return exists;
 };
 
@@ -121,7 +182,16 @@ export const fileExists = async (filePath: string): Promise<boolean> => {
 export const deleteFile = async (filePath: string): Promise<void> => {
   if (!filePath) return;
 
-  await bucket
+  // For local storage, delete the file from disk
+  if (!hasBucketConfig) {
+    const localPath = getLocalFilePath(filePath);
+    if (fs.existsSync(localPath)) {
+      await promisify(fs.unlink)(localPath);
+    }
+    return;
+  }
+
+  await bucket!
     .file(filePath)
     .delete()
     .catch((error) => {
