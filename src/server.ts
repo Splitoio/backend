@@ -9,6 +9,9 @@ import { fileRouter } from "./routes/file.routes";
 // import { authRouter } from './routes/auth.routes';
 import { errorHandler } from "./middleware/errorHandler";
 
+import { analyticsRouter } from "./routes/analytics.routes";
+import {reminderRouter} from "./routes/reminder.routes";
+
 import { fromNodeHeaders, toNodeHandler } from "better-auth/node";
 import { auth } from "./lib/auth";
 import { FRONTEND_URLS } from "./config/frontend-urls";
@@ -25,6 +28,12 @@ app.use(
 );
 
 app.all("/api/auth/*", toNodeHandler(auth));
+
+
+// Using  the analytics route
+app.use('/analytics', analyticsRouter);
+// Use the reminder route
+app.use('/reminders', reminderRouter);
 
 // Middleware
 app.use(express.json());

@@ -16,7 +16,10 @@ export { VerificationScalarFieldEnumSchema } from './VerificationScalarFieldEnum
 export { FriendshipScalarFieldEnumSchema } from './FriendshipScalarFieldEnumSchema';
 export { SettlementTransactionScalarFieldEnumSchema } from './SettlementTransactionScalarFieldEnumSchema';
 export { SettlementItemScalarFieldEnumSchema } from './SettlementItemScalarFieldEnumSchema';
+export { UserReminderScalarFieldEnumSchema } from './UserReminderScalarFieldEnumSchema';
 export { SortOrderSchema } from './SortOrderSchema';
 export { QueryModeSchema } from './QueryModeSchema';
 export { NullsOrderSchema } from './NullsOrderSchema';
 export { SplitTypeSchema } from './SplitTypeSchema';
+export { ReminderTypeSchema } from './ReminderTypeSchema';
+export { ReminderStatusSchema } from './ReminderStatusSchema';
