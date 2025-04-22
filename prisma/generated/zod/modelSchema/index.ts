@@ -14,3 +14,4 @@ export * from './VerificationSchema';
 export * from './FriendshipSchema';
 export * from './SettlementTransactionSchema';
 export * from './SettlementItemSchema';
+export * from './UserReminderSchema';

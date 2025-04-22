@@ -84,6 +84,8 @@ model User {
   receiveSettlements        SettlementTransaction[] @relation("SettlementWithUser")
   settlementItemsAsPayer    SettlementItem[]        @relation("SettlementItemUser")
   settlementItemsAsReceiver SettlementItem[]        @relation("SettlementItemFriend")
+  sentReminders             UserReminder[]          @relation("UserSender")
+  receivedReminders         UserReminder[]          @relation("UserReceiver")
 
   @@map("user")
 }
@@ -180,10 +182,11 @@ model Expense {
   group               Group?               @relation(fields: [groupId], references: [id], onDelete: Cascade)
   paidByUser          User                 @relation(name: "PaidByUser", fields: [paidBy], references: [id], onDelete: Cascade)
   addedByUser         User                 @relation(name: "AddedByUser", fields: [addedBy], references: [id], onDelete: Cascade)
-  deletedByUser       User?                @relation(name: "DeletedByUser", fields: [deletedBy], references: [id], onDelete: Cascade)
+  deletedByUser       User?                @relation(name: "DeletedByUser", fields: [deletedBy], references: [id], onDelete: SetNull)
   updatedByUser       User?                @relation(name: "UpdatedByUser", fields: [updatedBy], references: [id], onDelete: SetNull)
   expenseParticipants ExpenseParticipant[]
   expenseNotes        ExpenseNote[]
+  UserReminder        UserReminder[]
 
   @@index([groupId])
   @@index([paidBy])
@@ -264,4 +267,30 @@ model SettlementItem {
   settlementTransaction   SettlementTransaction @relation(fields: [settlementTransactionId], references: [id], onDelete: Cascade)
   user                    User                  @relation("SettlementItemUser", fields: [userId], references: [id], onDelete: Cascade)
   friend                  User                  @relation("SettlementItemFriend", fields: [friendId], references: [id], onDelete: Cascade)
+}
+
+enum ReminderType {
+  USER
+  SPLIT
+}
+
+enum ReminderStatus {
+  PENDING
+  COMPLETED
+  CANCELLED
+}
+
+model UserReminder {
+  id           String         @id @default(cuid())
+  senderId     String
+  receiverId   String
+  reminderType ReminderType
+  splitId      String?
+  message      String?
+  status       ReminderStatus @default(PENDING)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  sender       User           @relation("UserSender", fields: [senderId], references: [id], onDelete: Cascade)
+  receiver     User           @relation("UserReceiver", fields: [receiverId], references: [id], onDelete: Cascade)
+  split        Expense?       @relation(fields: [splitId], references: [id], onDelete: Cascade) // Changed from Group to Expense
 }
