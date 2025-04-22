@@ -292,5 +292,5 @@ model UserReminder {
   updatedAt    DateTime       @updatedAt
   sender       User           @relation("UserSender", fields: [senderId], references: [id], onDelete: Cascade)
   receiver     User           @relation("UserReceiver", fields: [receiverId], references: [id], onDelete: Cascade)
-  split        Expense?       @relation(fields: [splitId], references: [id], onDelete: Cascade) // Changed from Group to Expense
+  split        Expense?       @relation(fields: [splitId], references: [id], onDelete: Cascade)
 }
