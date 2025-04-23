@@ -5,6 +5,7 @@ import { StellarPlugin } from "../plugins/stellar-plugin";
 import { EthereumPlugin } from "../plugins/ethereum-plugin";
 import { MultiChainSplitService } from "./multichain-split.service";
 import { createLogger } from "../utils/logger";
+import { prisma } from "../lib/prisma";
 
 const logger = createLogger("multichain-system");
 
@@ -58,6 +59,87 @@ export async function initializeMultiChainSystem() {
     pluginManager,
     multiChainSplitService,
   };
+}
+
+/**
+ * Initialize chains and tokens in the database from the registries
+ */
+export async function initializeChainsAndTokens() {
+  logger.debug("Initializing chains and tokens in database");
+
+  if (!chainRegistry || !tokenRegistry) {
+    throw new Error(
+      "Chain and token registries not initialized. Call initializeMultiChainSystem first."
+    );
+  }
+
+  // Get all chains from registry
+  const chains = chainRegistry.getSupportedChains();
+
+  // Insert or update chains in the database
+  for (const chain of chains) {
+    logger.debug(`Upserting chain: ${chain.id}`);
+    await prisma.supportedChain.upsert({
+      where: { id: chain.id },
+      update: {
+        name: chain.name,
+        currency: chain.currency,
+        rpcUrl: chain.rpcUrl,
+        blockExplorer: chain.blockExplorer,
+        testnet: chain.testnet,
+        logoUrl: chain.logoUrl,
+        enabled: chain.enabled,
+      },
+      create: {
+        id: chain.id,
+        name: chain.name,
+        currency: chain.currency,
+        rpcUrl: chain.rpcUrl,
+        blockExplorer: chain.blockExplorer,
+        testnet: chain.testnet,
+        logoUrl: chain.logoUrl,
+        enabled: chain.enabled,
+      },
+    });
+  }
+
+  // Get all tokens across all chains
+  const tokens = tokenRegistry.getTokensByChain("all");
+
+  // Insert or update tokens in the database
+  for (const token of tokens) {
+    logger.debug(`Upserting token: ${token.id} on chain ${token.chainId}`);
+    await prisma.token.upsert({
+      where: { id: token.id },
+      update: {
+        name: token.name,
+        symbol: token.symbol,
+        decimals: token.decimals,
+        type: token.type,
+        chainId: token.chainId,
+        contractAddress: token.contractAddress,
+        logoUrl: token.logoUrl,
+        enabled: token.enabled,
+        exchangeRateSource: token.exchangeRateSource,
+      },
+      create: {
+        id: token.id,
+        name: token.name,
+        symbol: token.symbol,
+        decimals: token.decimals,
+        type: token.type,
+        chainId: token.chainId,
+        contractAddress: token.contractAddress,
+        logoUrl: token.logoUrl,
+        enabled: token.enabled,
+        exchangeRateSource: token.exchangeRateSource,
+      },
+    });
+  }
+
+  logger.info(
+    `Database initialized with ${chains.length} chains and ${tokens.length} tokens`
+  );
 }
 
 /**

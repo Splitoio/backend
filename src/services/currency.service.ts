@@ -2,7 +2,10 @@ import { prisma } from "../lib/prisma";
 import { CurrencyType } from "@prisma/client";
 import { getPricingService } from "./pricing";
 import { SUPPORTED_FIAT_CURRENCIES } from "../data/tokens";
-import { getTokenRegistry } from "./initialize-multichain";
+import { getTokenRegistry, getChainRegistry } from "./initialize-multichain";
+import { createLogger } from "../utils/logger";
+
+const logger = createLogger("currency-service");
 
 /**
  * Initialize fiat currencies in the database
@@ -25,6 +28,102 @@ export async function initializeFiatCurrencies() {
         enabled: true,
       },
     });
+  }
+}
+
+/**
+ * Sync a specific chain from registry to database
+ * @param chainId The ID of the chain to sync
+ */
+export async function syncChainToDatabase(chainId: string) {
+  try {
+    const chainRegistry = getChainRegistry();
+    const chain = chainRegistry.getChain(chainId);
+
+    if (!chain) {
+      logger.warn(`Chain ${chainId} not found in registry`);
+      return false;
+    }
+
+    await prisma.supportedChain.upsert({
+      where: { id: chain.id },
+      update: {
+        name: chain.name,
+        currency: chain.currency,
+        rpcUrl: chain.rpcUrl,
+        blockExplorer: chain.blockExplorer,
+        testnet: chain.testnet,
+        logoUrl: chain.logoUrl,
+        enabled: chain.enabled,
+      },
+      create: {
+        id: chain.id,
+        name: chain.name,
+        currency: chain.currency,
+        rpcUrl: chain.rpcUrl,
+        blockExplorer: chain.blockExplorer,
+        testnet: chain.testnet,
+        logoUrl: chain.logoUrl,
+        enabled: chain.enabled,
+      },
+    });
+
+    return true;
+  } catch (error) {
+    logger.error({ error, chainId }, "Failed to sync chain to database");
+    return false;
+  }
+}
+
+/**
+ * Sync a specific token from registry to database
+ * @param chainId The chain ID of the token
+ * @param tokenId The ID of the token to sync
+ */
+export async function syncTokenToDatabase(chainId: string, tokenId: string) {
+  try {
+    const tokenRegistry = getTokenRegistry();
+    const token = tokenRegistry.getToken(chainId, tokenId);
+
+    if (!token) {
+      logger.warn(`Token ${tokenId} on chain ${chainId} not found in registry`);
+      return false;
+    }
+
+    await prisma.token.upsert({
+      where: { id: token.id },
+      update: {
+        name: token.name,
+        symbol: token.symbol,
+        decimals: token.decimals,
+        type: token.type,
+        chainId: token.chainId,
+        contractAddress: token.contractAddress,
+        logoUrl: token.logoUrl,
+        enabled: token.enabled,
+        exchangeRateSource: token.exchangeRateSource,
+      },
+      create: {
+        id: token.id,
+        name: token.name,
+        symbol: token.symbol,
+        decimals: token.decimals,
+        type: token.type,
+        chainId: token.chainId,
+        contractAddress: token.contractAddress,
+        logoUrl: token.logoUrl,
+        enabled: token.enabled,
+        exchangeRateSource: token.exchangeRateSource,
+      },
+    });
+
+    return true;
+  } catch (error) {
+    logger.error(
+      { error, chainId, tokenId },
+      "Failed to sync token to database"
+    );
+    return false;
   }
 }
 
@@ -83,6 +182,29 @@ export async function getSupportedFiatCurrencies() {
   return prisma.fiatCurrency.findMany({
     where: { enabled: true },
     orderBy: { id: "asc" },
+  });
+}
+
+/**
+ * Get all supported chains from database
+ */
+export async function getSupportedChains() {
+  return prisma.supportedChain.findMany({
+    where: { enabled: true },
+    orderBy: { id: "asc" },
+  });
+}
+
+/**
+ * Get all tokens for a specific chain from database
+ */
+export async function getTokensByChain(chainId: string) {
+  return prisma.token.findMany({
+    where: {
+      chainId,
+      enabled: true,
+    },
+    orderBy: { symbol: "asc" },
   });
 }
 

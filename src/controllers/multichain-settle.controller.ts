@@ -2,6 +2,10 @@ import { Request, Response } from "express";
 import { prisma } from "../lib/prisma";
 import { getMultiChainSplitService } from "../services/initialize-multichain";
 import { createLogger } from "../utils/logger";
+import {
+  getSupportedChains,
+  getTokensByChain,
+} from "../services/currency.service";
 
 const logger = createLogger("multichain-controller");
 
@@ -13,9 +17,8 @@ export const getAvailableChainsController = async (
     const userId = req.user!.id;
     logger.debug({ userId }, "Getting available chains for user");
 
-    const multiChainService = getMultiChainSplitService();
-
-    const availableChains = await multiChainService.getAvailableChains(userId);
+    // Get chains from database instead of in-memory registry
+    const availableChains = await getSupportedChains();
 
     logger.debug(
       { userId, chainCount: availableChains.length },
@@ -44,8 +47,9 @@ export const getAvailableTokensController = async (
     }
 
     logger.debug({ chainId }, "Getting available tokens for chain");
-    const multiChainService = getMultiChainSplitService();
-    const availableTokens = await multiChainService.getAvailableTokens(chainId);
+
+    // Get tokens from database instead of in-memory registry
+    const availableTokens = await getTokensByChain(chainId);
 
     logger.debug(
       { chainId, tokenCount: availableTokens.length },
@@ -326,13 +330,13 @@ export const getAllChainsAndTokensController = async (
     const userId = req.user!.id;
     logger.debug({ userId }, "Getting all chains and tokens");
 
-    const multiChainService = getMultiChainSplitService();
-    const chains = await multiChainService.getAvailableChains(userId);
+    // Get chains from database
+    const chains = await getSupportedChains();
 
-    // Get tokens for each chain
+    // Get tokens for each chain from database
     const chainsWithTokens = await Promise.all(
       chains.map(async (chain) => {
-        const tokens = await multiChainService.getAvailableTokens(chain.id);
+        const tokens = await getTokensByChain(chain.id);
         return {
           ...chain,
           tokens,

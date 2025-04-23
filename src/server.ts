@@ -10,7 +10,10 @@ import { currencyRouter } from "./routes/currency.routes";
 import { pricingRouter } from "./routes/pricing.routes";
 import { expenseRouter } from "./routes/expense.routes";
 import { errorHandler } from "./middleware/errorHandler";
-import { initializeMultiChainSystem } from "./services/initialize-multichain";
+import {
+  initializeMultiChainSystem,
+  initializeChainsAndTokens,
+} from "./services/initialize-multichain";
 import { initializeFiatCurrencies } from "./services/currency.service";
 import { fromNodeHeaders, toNodeHandler } from "better-auth/node";
 import { auth } from "./lib/auth";
@@ -68,6 +71,11 @@ async function initializeApp() {
     logger.info("Initializing multi-chain system...");
     await initializeMultiChainSystem();
     logger.info("Multi-chain system initialized successfully");
+
+    // Initialize chains and tokens in the database
+    logger.info("Initializing chains and tokens in database...");
+    await initializeChainsAndTokens();
+    logger.info("Chains and tokens initialized successfully");
 
     // Initialize fiat currencies
     logger.info("Initializing fiat currencies...");
