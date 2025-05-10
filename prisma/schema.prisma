@@ -62,8 +62,6 @@ model User {
   image                     String?
   currency                  String                  @default("USD")
   stellarAccount            String?
-  chainAccounts             ChainAccount[] // Add this new relation
-  acceptedTokens            UserAcceptedToken[] // New relation to track accepted tokens
   accounts                  Account[]
   sessions                  Session[]
   groups                    Group[]
@@ -86,68 +84,10 @@ model User {
   receiveSettlements        SettlementTransaction[] @relation("SettlementWithUser")
   settlementItemsAsPayer    SettlementItem[]        @relation("SettlementItemUser")
   settlementItemsAsReceiver SettlementItem[]        @relation("SettlementItemFriend")
+  sentReminders             UserReminder[]          @relation("UserSender")
+  receivedReminders         UserReminder[]          @relation("UserReceiver")
 
   @@map("user")
-}
-
-// New model to store user's addresses for different chains
-model ChainAccount {
-  id        String   @id @default(cuid())
-  userId    String
-  chainId   String
-  address   String
-  isDefault Boolean  @default(false)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  user  User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-  chain SupportedChain @relation(fields: [chainId], references: [id])
-
-  @@unique([userId, chainId, address])
-  @@index([userId])
-  @@index([chainId])
-}
-
-// Store chain information
-model SupportedChain {
-  id            String   @id // Chain ID
-  name          String
-  currency      String
-  rpcUrl        String
-  blockExplorer String
-  testnet       Boolean  @default(false)
-  logoUrl       String?
-  enabled       Boolean  @default(true)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-
-  tokens             Token[]
-  transactions       SettlementTransaction[]
-  userAccounts       ChainAccount[]
-  UserAcceptedToken  UserAcceptedToken[]
-  GroupAcceptedToken GroupAcceptedToken[]
-}
-
-// Store token information
-model Token {
-  id                 String   @id
-  name               String
-  symbol             String
-  decimals           Int
-  type               String // "native" or "token" or "fiat"
-  chainId            String
-  contractAddress    String?
-  logoUrl            String?
-  enabled            Boolean  @default(true)
-  exchangeRateSource String?
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
-
-  chain               SupportedChain       @relation(fields: [chainId], references: [id])
-  userAcceptedTokens  UserAcceptedToken[]
-  groupAcceptedTokens GroupAcceptedToken[]
-
-  @@unique([chainId, symbol])
 }
 
 model VerificationToken {
@@ -179,7 +119,6 @@ model Group {
   description            String?
   image                  String?
   defaultCurrency        String                  @default("USD")
-  acceptedTokens         GroupAcceptedToken[] // New relation to track accepted tokens
   createdAt              DateTime                @default(now())
   updatedAt              DateTime                @updatedAt
   // contractGroupId Int      @unique
@@ -234,13 +173,7 @@ model Expense {
   expenseDate         DateTime             @default(now())
   createdAt           DateTime             @default(now())
   updatedAt           DateTime             @updatedAt
-  currency            String // Can be fiat currency code or token symbol
-  currencyType        CurrencyType         @default(FIAT) // Added to distinguish between fiat and token currencies
-  tokenId             String? // Reference to token if currencyType is TOKEN
-  chainId             String? // Reference to chain if currencyType is TOKEN
-  acceptedTokenIds    String[] // New field to store accepted tokens for settlement
-  exchangeRate        Float? // Store exchange rate at time of expense creation if time lock-in is enabled
-  timeLockIn          Boolean              @default(false) // Whether to lock the expense amount to current exchange rate
+  currency            String
   fileKey             String?
   groupId             String?
   deletedAt           DateTime?
@@ -249,10 +182,11 @@ model Expense {
   group               Group?               @relation(fields: [groupId], references: [id], onDelete: Cascade)
   paidByUser          User                 @relation(name: "PaidByUser", fields: [paidBy], references: [id], onDelete: Cascade)
   addedByUser         User                 @relation(name: "AddedByUser", fields: [addedBy], references: [id], onDelete: Cascade)
-  deletedByUser       User?                @relation(name: "DeletedByUser", fields: [deletedBy], references: [id], onDelete: Cascade)
+  deletedByUser       User?                @relation(name: "DeletedByUser", fields: [deletedBy], references: [id], onDelete: SetNull)
   updatedByUser       User?                @relation(name: "UpdatedByUser", fields: [updatedBy], references: [id], onDelete: SetNull)
   expenseParticipants ExpenseParticipant[]
   expenseNotes        ExpenseNote[]
+  UserReminder        UserReminder[]
 
   @@index([groupId])
   @@index([paidBy])
@@ -315,14 +249,11 @@ model SettlementTransaction {
   createdAt       DateTime  @default(now())
   completedAt     DateTime?
   transactionHash String?
-  chainId         String // Added for multi-chain support
-  tokenId         String? // Added for multi-token support
 
   user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
-  settleWith      User?            @relation("SettlementWithUser", fields: [settleWithId], references: [id])
-  group           Group            @relation(fields: [groupId], references: [id])
+  group           Group            @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  settleWith      User?            @relation("SettlementWithUser", fields: [settleWithId], references: [id], onDelete: SetNull)
   settlementItems SettlementItem[]
-  chain           SupportedChain   @relation(fields: [chainId], references: [id])
 }
 
 model SettlementItem {
@@ -330,67 +261,36 @@ model SettlementItem {
   settlementTransactionId String
   userId                  String
   friendId                String
-  amount                  Float
-  createdAt               DateTime              @default(now())
-  currency                String
-  // Group-related fields
-  groupId                 String?
-  afterSettlementBalance  Float?
-  user                    User                  @relation("SettlementItemUser", fields: [userId], references: [id])
-  friend                  User                  @relation("SettlementItemFriend", fields: [friendId], references: [id])
+  originalAmount          Float
+  originalCurrency        String
+  xlmAmount               Float
   settlementTransaction   SettlementTransaction @relation(fields: [settlementTransactionId], references: [id], onDelete: Cascade)
+  user                    User                  @relation("SettlementItemUser", fields: [userId], references: [id], onDelete: Cascade)
+  friend                  User                  @relation("SettlementItemFriend", fields: [friendId], references: [id], onDelete: Cascade)
 }
 
-enum CurrencyType {
-  FIAT
-  TOKEN
+enum ReminderType {
+  USER
+  SPLIT
 }
 
-// Add a table to track fiat currencies
-model FiatCurrency {
-  id          String   @id // Currency code (e.g., USD, EUR, INR)
-  name        String
-  symbol      String
-  coinGeckoId String
-  enabled     Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+enum ReminderStatus {
+  PENDING
+  COMPLETED
+  CANCELLED
 }
 
-// New model to track user's accepted tokens
-model UserAcceptedToken {
-  id        String   @id @default(cuid())
-  userId    String
-  tokenId   String
-  chainId   String
-  isDefault Boolean  @default(false)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  user  User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-  token Token          @relation(fields: [tokenId], references: [id])
-  chain SupportedChain @relation(fields: [chainId], references: [id])
-
-  @@unique([userId, tokenId, chainId])
-  @@index([userId])
-  @@index([tokenId])
-}
-
-// New model to track group's accepted tokens
-model GroupAcceptedToken {
-  id        String   @id @default(cuid())
-  groupId   String
-  tokenId   String
-  chainId   String
-  isDefault Boolean  @default(false)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  group Group          @relation(fields: [groupId], references: [id], onDelete: Cascade)
-  token Token          @relation(fields: [tokenId], references: [id])
-  chain SupportedChain @relation(fields: [chainId], references: [id])
-
-  @@unique([groupId, tokenId, chainId])
-  @@index([groupId])
-  @@index([tokenId])
+model UserReminder {
+  id           String         @id @default(cuid())
+  senderId     String
+  receiverId   String
+  reminderType ReminderType
+  splitId      String?
+  message      String?
+  status       ReminderStatus @default(PENDING)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  sender       User           @relation("UserSender", fields: [senderId], references: [id], onDelete: Cascade)
+  receiver     User           @relation("UserReceiver", fields: [receiverId], references: [id], onDelete: Cascade)
+  split        Expense?       @relation(fields: [splitId], references: [id], onDelete: Cascade)
 }

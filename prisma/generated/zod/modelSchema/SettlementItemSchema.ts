@@ -9,11 +9,9 @@ export const SettlementItemSchema = z.object({
   settlementTransactionId: z.string(),
   userId: z.string(),
   friendId: z.string(),
-  amount: z.number(),
-  createdAt: z.coerce.date(),
-  currency: z.string(),
-  groupId: z.string().nullable(),
-  afterSettlementBalance: z.number().nullable(),
+  originalAmount: z.number(),
+  originalCurrency: z.string(),
+  xlmAmount: z.number(),
 })
 
 export type SettlementItem = z.infer<typeof SettlementItemSchema>
