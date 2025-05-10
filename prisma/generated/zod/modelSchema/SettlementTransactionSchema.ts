@@ -5,7 +5,7 @@ import { z } from 'zod';
 /////////////////////////////////////////
 
 export const SettlementTransactionSchema = z.object({
-  id: z.string().cuid(),
+  id: z.string().uuid(),
   userId: z.string(),
   groupId: z.string(),
   serializedTx: z.string(),

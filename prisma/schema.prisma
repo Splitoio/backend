@@ -61,6 +61,8 @@ model User {
   emailVerified             Boolean
   image                     String?
   currency                  String                  @default("USD")
+  analyticsEnabled          Boolean                 @default(false)
+  reminderPreference        String?
   stellarAccount            String?
   chainAccounts             ChainAccount[] // Add this new relation
   acceptedTokens            UserAcceptedToken[] // New relation to track accepted tokens
@@ -86,6 +88,10 @@ model User {
   receiveSettlements        SettlementTransaction[] @relation("SettlementWithUser")
   settlementItemsAsPayer    SettlementItem[]        @relation("SettlementItemUser")
   settlementItemsAsReceiver SettlementItem[]        @relation("SettlementItemFriend")
+  sentReminders             UserReminder[]          @relation("UserSender")
+  reminderFrequency         String?
+  lastReminderSentAt        DateTime?
+  receivedReminders         UserReminder[]          @relation("UserReceiver")
 
   @@map("user")
 }
@@ -248,11 +254,12 @@ model Expense {
   updatedBy           String?
   group               Group?               @relation(fields: [groupId], references: [id], onDelete: Cascade)
   paidByUser          User                 @relation(name: "PaidByUser", fields: [paidBy], references: [id], onDelete: Cascade)
-  addedByUser         User                 @relation(name: "AddedByUser", fields: [addedBy], references: [id], onDelete: Cascade)
-  deletedByUser       User?                @relation(name: "DeletedByUser", fields: [deletedBy], references: [id], onDelete: Cascade)
+  addedByUser         User                 @relation(name: "AddedByUser", fields: [addedBy], references: [id])
+  deletedByUser       User?                @relation(name: "DeletedByUser", fields: [deletedBy], references: [id], onDelete: SetNull)
   updatedByUser       User?                @relation(name: "UpdatedByUser", fields: [updatedBy], references: [id], onDelete: SetNull)
   expenseParticipants ExpenseParticipant[]
   expenseNotes        ExpenseNote[]
+  UserReminder        UserReminder[]
 
   @@index([groupId])
   @@index([paidBy])
@@ -306,7 +313,7 @@ model Friendship {
 }
 
 model SettlementTransaction {
-  id              String    @id @default(cuid())
+  id              String    @id @default(uuid())
   userId          String
   groupId         String
   serializedTx    String
@@ -393,4 +400,30 @@ model GroupAcceptedToken {
   @@unique([groupId, tokenId, chainId])
   @@index([groupId])
   @@index([tokenId])
+}
+
+enum ReminderType {
+  USER
+  SPLIT
+}
+
+enum ReminderStatus {
+  PENDING
+  COMPLETED
+  CANCELLED
+}
+
+model UserReminder {
+  id           String         @id @default(uuid())
+  senderId     String
+  receiverId   String
+  reminderType ReminderType
+  splitId      String?
+  content      String?
+  status       ReminderStatus @default(PENDING)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  sender       User           @relation("UserSender", fields: [senderId], references: [id], onDelete: Cascade)
+  receiver     User           @relation("UserReceiver", fields: [receiverId], references: [id], onDelete: Cascade)
+  split        Expense?       @relation(fields: [splitId], references: [id], onDelete: Cascade)
 }
