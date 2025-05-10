@@ -17,8 +17,8 @@
     "docker:run": "docker rm -f splito-backend || true && docker run --name splito-backend -p 4000:4000 --env-file .env splito-backend",
     "docker:push": "docker tag splito-backend gcr.io/miraya-447801/splito-service && docker push gcr.io/miraya-447801/splito-service",
     "postinstall": "prisma generate",
-    "localdb:up": "docker-compose up -d",
-    "localdb:down": "docker-compose down"
+    "localdb:up": "docker compose up -d",
+    "localdb:down": "docker compose down"
   },
   "keywords": [],
   "author": "",
@@ -26,7 +26,7 @@
   "description": "",
   "dependencies": {
     "@google-cloud/storage": "^7.15.2",
-    "@prisma/client": "^6.2.1",
+    "@prisma/client": "^6.7.0",
     "@solana/web3.js": "^1.98.0",
     "@stellar/stellar-sdk": "^13.1.0",
     "aptos": "^1.21.0",
@@ -45,7 +45,6 @@
     "pino": "^9.6.0",
     "pino-http": "^10.4.0",
     "pino-pretty": "^13.0.0",
-    "prisma": "^6.2.1",
     "swagger-jsdoc": "^6.2.8",
     "swagger-ui-express": "^5.0.1",
     "uuid": "^11.1.0",
@@ -62,6 +61,7 @@
     "@types/swagger-jsdoc": "^6.0.4",
     "@types/swagger-ui-express": "^4.1.8",
     "nodemon": "^3.1.9",
+    "prisma": "^6.7.0",
     "ts-node": "^10.9.2",
     "typescript": "^5.7.3"
   }

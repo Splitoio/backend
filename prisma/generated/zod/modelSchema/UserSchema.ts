@@ -11,9 +11,13 @@ export const UserSchema = z.object({
   emailVerified: z.boolean(),
   image: z.string().nullable(),
   currency: z.string(),
+  analyticsEnabled: z.boolean(),
+  reminderPreference: z.string().nullable(),
   stellarAccount: z.string().nullable(),
   createdAt: z.coerce.date(),
   updatedAt: z.coerce.date(),
+  reminderFrequency: z.string().nullable(),
+  lastReminderSentAt: z.coerce.date().nullable(),
 })
 
 export type User = z.infer<typeof UserSchema>
