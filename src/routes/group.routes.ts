@@ -28,7 +28,7 @@ router.use(getSession);
 router.post("/", createGroup);
 router.get("/", getAllGroups);
 router.get("/balances", getAllGroupsWithBalances);
-router.get("/:groupId", getEnhancedExpensesController);
+router.get("/:groupId", getGroupById);
 // router.get("/:groupId", getGroupById);
 router.post("/:groupId/expenses", createEnhancedExpenseController);
 router.post("/addMember", addMemberToGroup);
