@@ -45,15 +45,6 @@ export const createGroup = async (req: Request, res: Response) => {
       return;
     }
 
-    // if (!user.stellarAccount) {
-    //   res.status(400).json({ error: "User has no stellar account" });
-    //   return;
-    // }
-
-    // const groupId = Math.floor(Math.random() * 1000000000); // 9 digit random int
-
-    // const groupId = await contactManager.createGroup([user.stellarAccount]);
-
     const userId = req.user!.id;
 
     const group = await prisma.group.create({
@@ -62,7 +53,6 @@ export const createGroup = async (req: Request, res: Response) => {
         userId,
         description,
         image: imageUrl,
-        // contractGroupId: groupId,
         defaultCurrency: currency,
         groupUsers: {
           create: {
@@ -89,25 +79,23 @@ export const createGroup = async (req: Request, res: Response) => {
         })
       );
     }
-    // else {
-    //   // If no tokens provided, add user's default token if available
-    //   const userDefaultToken = await prisma.userAcceptedToken.findFirst({
-    //     where: { userId, isDefault: true },
-    //   });
 
-    //   if (userDefaultToken) {
-    //     await prisma.groupAcceptedToken.create({
-    //       data: {
-    //         groupId: group.id,
-    //         tokenId: userDefaultToken.tokenId,
-    //         chainId: userDefaultToken.chainId,
-    //         isDefault: true,
-    //       },
-    //     });
-    //   }
-    // }
+    const createdGroupWithRelations = await prisma.group.findUnique({
+      where: { id: group.id },
+      include: {
+        createdBy: {
+          select: { id: true, name: true }
+        },
+        groupUsers: {
+          include: {
+            user: { select: { id: true, name: true } }
+          }
+        },
+        groupBalances: true,
+      },
+    });
 
-    res.json(group);
+    res.status(201).json(createdGroupWithRelations);
   } catch (error) {
     console.error("Create group error:", error);
     res.status(500).json({ error: "Failed to create group" });
@@ -131,11 +119,14 @@ export const getAllGroups = async (req: Request, res: Response) => {
                 name: true,
               },
             },
-            // groupUsers: {
-            //   include: {
-            //     user: true,
-            //   },
-            // },
+            groupUsers: {
+              include: {
+                user: {
+                  select: { id: true, name: true }
+                },
+              },
+            },
+            groupBalances: true,
           },
         },
       },

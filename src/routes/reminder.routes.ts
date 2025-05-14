@@ -3,7 +3,7 @@ import { getSession } from "../middleware/auth";
 import {
   createReminderHandler,
   getRemindersHandler,
-} from "../controllers/reminder.controllers";
+} from "../controllers/reminder.controller";
 
 const router = Router();
 
