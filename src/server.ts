@@ -9,6 +9,8 @@ import { multiChainRouter } from "./routes/multichain.routes";
 import { currencyRouter } from "./routes/currency.routes";
 import { pricingRouter } from "./routes/pricing.routes";
 import { expenseRouter } from "./routes/expense.routes";
+import { analyticsRouter } from "./routes/analytics.routes"; // Import analytics router
+import { reminderRouter } from "./routes/reminder.routes"; // Import reminder router
 import { errorHandler } from "./middleware/errorHandler";
 import {
   initializeMultiChainSystem,
@@ -57,6 +59,10 @@ app.use("/api/expenses", expenseRouter);
 app.use("/api/multichain", multiChainRouter);
 app.use("/api/currency", currencyRouter);
 app.use("/api/pricing", pricingRouter);
+// Use the analytics route
+app.use("/api/analytics", analyticsRouter);
+// Use the reminder route
+app.use("/api/reminders", reminderRouter);
 
 app.use(errorHandler);
 
