@@ -1,10 +1,13 @@
 import { Router } from "express";
 import { getSession } from "../middleware/auth";
-import { getAnalytics } from "../controllers/analytics.controller";
+import { getAnalyticsController } from "../controllers/analytics.controller";
+
 const router = Router();
 
+// Apply authentication middleware
 router.use(getSession);
 
-router.get("/", getAnalytics);
+// Get analytics data
+router.get("/", getAnalyticsController);
 
 export const analyticsRouter = router;
