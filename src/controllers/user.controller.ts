@@ -340,6 +340,19 @@ export const addFriend = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
+    // Check if friendship already exists
+    const existingFriendship = await prisma.friendship.findFirst({
+      where: {
+        userId: userId,
+        friendId: friend.id,
+      },
+    });
+
+    if (existingFriendship) {
+      res.json({ message: "Already friends", status: "success" });
+      return;
+    }
+
     await prisma.$transaction([
       prisma.friendship.create({
         data: {
