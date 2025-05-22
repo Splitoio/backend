@@ -25,6 +25,7 @@ export const createReminder = async (senderId: string, reminderData: any) => {
       throw new Error("Receiver not found");
     }
 
+    let userReminderAmount = undefined;
     // For USER type reminders, check if there's any balance
     if (reminderType === ReminderType.USER) {
       // Check if receiver owes any money to sender
@@ -41,6 +42,7 @@ export const createReminder = async (senderId: string, reminderData: any) => {
       if (!balance) {
         throw new Error("This user doesn't owe you any money");
       }
+      userReminderAmount = balance.amount;
     }
     // For SPLIT type reminders, validate the expense
     else if (reminderType === ReminderType.SPLIT) {
@@ -129,6 +131,10 @@ export const createReminder = async (senderId: string, reminderData: any) => {
         } : undefined
       }
     });
+    // Add amount only for USER reminders
+    if (reminderType === ReminderType.USER && userReminderAmount !== undefined) {
+      return { ...reminder, amount: userReminderAmount };
+    }
     return reminder;
   } catch (error: any) {
     console.error("Error creating reminder:", error);
@@ -176,7 +182,25 @@ export const getRemindersForUser = async (receiverId: string) => {
         createdAt: "desc",
       },
     });
-    return reminders;
+    // For USER reminders, fetch the amount owed and add it to each reminder
+    const remindersWithAmount = await Promise.all(reminders.map(async (reminder) => {
+      if (reminder.reminderType === ReminderType.USER) {
+        const balance = await prisma.balance.findFirst({
+          where: {
+            userId: reminder.senderId,
+            friendId: reminder.receiverId,
+            amount: {
+              gt: 0
+            }
+          }
+        });
+        if (balance) {
+          return { ...reminder, amount: balance.amount };
+        }
+      }
+      return reminder;
+    }));
+    return remindersWithAmount;
   } catch (error: any) {
     console.error("Error getting reminders for user:", error);
     throw new Error("Failed to get reminders: " + error.message);
