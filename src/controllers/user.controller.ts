@@ -245,7 +245,7 @@ export const getExpensesWithFriend = async (req: Request, res: Response) => {
 
 export const updateUserDetails = async (req: Request, res: Response) => {
   const userId = req.user!.id;
-  const { name, currency, stellarAccount, image } = req.body;
+  const { name, currency, stellarAccount, image, timeLockInDefault } = req.body;
 
   if (stellarAccount) {
     const accountExists = await checkAccountExists(stellarAccount);
@@ -265,6 +265,7 @@ export const updateUserDetails = async (req: Request, res: Response) => {
         ...(currency && { currency }),
         ...(stellarAccount && { stellarAccount }),
         ...(image && { image }),
+        ...(typeof timeLockInDefault === 'boolean' ? { timeLockInDefault } : {}),
       },
     });
 
