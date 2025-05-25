@@ -17,6 +17,7 @@ const settleDebtSchemaCreate = z.object({
   address: z.string().min(1, "Address is required"),
   selectedTokenId: z.string().optional(),
   selectedChainId: z.string().optional(),
+  expenseId: z.string().optional(),
 });
 
 export const settleDebtCreateTransaction = async (
@@ -30,8 +31,8 @@ export const settleDebtCreateTransaction = async (
     return;
   }
 
-  const { groupId, address, settleWithId, selectedTokenId, selectedChainId } =
-    result.data;
+  const { groupId, address, settleWithId, selectedTokenId, selectedChainId, expenseId } =
+    { ...result.data, ...req.body };
 
   const userId = req.user!.id;
 
@@ -69,6 +70,65 @@ export const settleDebtCreateTransaction = async (
       res.status(400).json({ error: "No balances to pay" });
       return;
     }
+
+    // --- Resolver Enforcement Logic ---
+    let allowedTokenIds: string[] = [];
+    let allowedChainIds: string[] = [];
+    let resolverLevel = "none";
+
+    // 1. Expense-level resolver (if expenseId provided)
+    if (expenseId) {
+      const expense = await prisma.expense.findUnique({
+        where: { id: expenseId },
+        select: { acceptedTokenIds: true }
+      });
+      if (expense && expense.acceptedTokenIds && expense.acceptedTokenIds.length > 0) {
+        allowedTokenIds = expense.acceptedTokenIds;
+        resolverLevel = "expense";
+      }
+    }
+
+    // 2. Group-level resolver
+    if (!allowedTokenIds.length) {
+      const groupTokens = await prisma.groupAcceptedToken.findMany({
+        where: { groupId },
+        select: { tokenId: true, chainId: true }
+      });
+      if (groupTokens.length > 0) {
+        allowedTokenIds = groupTokens.map(t => t.tokenId);
+        allowedChainIds = groupTokens.map(t => t.chainId);
+        resolverLevel = "group";
+      }
+    }
+
+    // 3. User-level resolver
+    if (!allowedTokenIds.length && settleWithId) {
+      const userTokens = await prisma.userAcceptedToken.findMany({
+        where: { userId: settleWithId },
+        select: { tokenId: true, chainId: true }
+      });
+      if (userTokens.length > 0) {
+        allowedTokenIds = userTokens.map(t => t.tokenId);
+        allowedChainIds = userTokens.map(t => t.chainId);
+        resolverLevel = "user";
+      }
+    }
+
+    // If a resolver is set, enforce it
+    if (allowedTokenIds.length > 0) {
+      if (!selectedTokenId || !allowedTokenIds.includes(selectedTokenId)) {
+        return res.status(400).json({
+          error: `You must settle using the allowed resolver token(s) (${resolverLevel} level). Allowed token IDs: ${allowedTokenIds.join(", ")}`
+        });
+      }
+      // Optionally, also check chainId if needed
+      if (allowedChainIds.length > 0 && selectedChainId && !allowedChainIds.includes(selectedChainId)) {
+        return res.status(400).json({
+          error: `You must settle using the allowed resolver chain(s) (${resolverLevel} level). Allowed chain IDs: ${allowedChainIds.join(", ")}`
+        });
+      }
+    }
+    // --- End Resolver Enforcement ---
 
     // Determine settlement token based on selection or preferences
     let settlementToken;

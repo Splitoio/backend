@@ -3,7 +3,7 @@ import cors from "cors";
 import helmet from "helmet";
 import { env } from "./config/env";
 import { userRouter } from "./routes/user.routes";
-import { groupRouter } from "./routes/group.routes";
+import groupRouter from "./routes/group.routes";
 import { fileRouter } from "./routes/file.routes";
 import { multiChainRouter } from "./routes/multichain.routes";
 import { currencyRouter } from "./routes/currency.routes";

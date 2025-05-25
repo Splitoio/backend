@@ -48,4 +48,4 @@ router.delete("/:groupId", deleteGroup);
 router.post("/:groupId/mark-paid", markAsPaidController);
 router.delete("/:groupId/members/:userId", removeMemberFromGroup);
 
-export const groupRouter = router;
+export default router;
