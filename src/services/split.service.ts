@@ -7,7 +7,9 @@ import { getExchangeRate, convertAmount } from "./currency.service";
 type Participant = {
   userId: string;
   amount: number;
+  currency: string;
 };
+
 
 type EnhancedExpenseOptions = {
   groupId: string;
@@ -45,11 +47,12 @@ export const updateGroupBalanceForParticipants = async (
       return;
     }
 
+    // Update balance where participant owes to the payer
     operations.push(
       prisma.groupBalance.upsert({
         where: {
           groupId_currency_firendId_userId: {
-            groupId,
+            groupId: groupId,
             currency: participant.currency,
             userId: paidBy,
             firendId: participant.userId,
@@ -61,7 +64,7 @@ export const updateGroupBalanceForParticipants = async (
           },
         },
         create: {
-          groupId,
+          groupId: groupId,
           currency: participant.currency,
           userId: paidBy,
           firendId: participant.userId,
@@ -75,7 +78,7 @@ export const updateGroupBalanceForParticipants = async (
       prisma.groupBalance.upsert({
         where: {
           groupId_currency_firendId_userId: {
-            groupId,
+            groupId: groupId,
             currency: participant.currency,
             firendId: paidBy,
             userId: participant.userId,
@@ -87,11 +90,11 @@ export const updateGroupBalanceForParticipants = async (
           },
         },
         create: {
-          groupId,
+          groupId: groupId,
           currency: participant.currency,
           userId: participant.userId,
           firendId: paidBy,
-          amount: toInteger(participant.amount), // Negative because it's the opposite balance
+          amount: toInteger(participant.amount),
         },
       })
     );
@@ -139,7 +142,7 @@ export const updateGroupBalanceForParticipants = async (
           userId: participant.userId,
           currency: participant.currency,
           friendId: paidBy,
-          amount: toInteger(participant.amount), // Negative because it's the opposite balance
+          amount: toInteger(participant.amount),
         },
       })
     );
@@ -195,139 +198,189 @@ export const createEnhancedGroupExpense = async (
   operations.push(
     prisma.expense.create({
       data: {
-        groupId,
-        paidBy,
-        name,
-        category,
-        amount,
-        splitType,
-        currency,
-        currencyType,
-        tokenId,
-        chainId,
-        timeLockIn,
-        exchangeRate,
+        groupId: groupId,
+        paidBy: paidBy,
+        name: name,
+        category: category,
+        amount: amount,
+        splitType: splitType,
+        currency: currency,
+        currencyType: currencyType,
+        tokenId: tokenId,
+        chainId: chainId,
+        timeLockIn: timeLockIn,
+        exchangeRate: exchangeRate,
         expenseParticipants: {
           create: participants.map((participant) => ({
             userId: participant.userId,
             amount: participant.amount,
           })),
         },
-        fileKey,
+        fileKey: fileKey,
         addedBy: currentUserId,
-        expenseDate,
+        expenseDate: expenseDate,
       },
     })
   );
 
-  // Update group balances and overall balances operations
-  participants.forEach((participant) => {
-    if (participant.userId === paidBy) {
-      return;
+  // For SETTLEMENT, always update balances for all participants
+  if (splitType === SplitType.SETTLEMENT) {
+    if (participants.length === 2) {
+      const [a, b] = participants;
+      // a: payer, b: payee (or vice versa)
+      // The one with amount > 0 is the payee, the other is the payer
+      const payer = a.amount === 0 ? a : b;
+      const payee = a.amount > 0 ? a : b;
+      const amt = payee.amount;
+      // payer pays payee
+      operations.push(
+        prisma.groupBalance.upsert({
+          where: {
+            groupId_currency_firendId_userId: {
+              groupId: groupId,
+              currency: currency,
+              userId: payer.userId,
+              firendId: payee.userId,
+            },
+          },
+          update: { amount: 0 },
+          create: {
+            groupId: groupId,
+            currency: currency,
+            userId: payer.userId,
+            firendId: payee.userId,
+            amount: 0,
+          },
+        })
+      );
+      operations.push(
+        prisma.groupBalance.upsert({
+          where: {
+            groupId_currency_firendId_userId: {
+              groupId: groupId,
+              currency: currency,
+              userId: payee.userId,
+              firendId: payer.userId,
+            },
+          },
+          update: { amount: 0 },
+          create: {
+            groupId: groupId,
+            currency: currency,
+            userId: payee.userId,
+            firendId: payer.userId,
+            amount: 0,
+          },
+        })
+      );
     }
+  } else {
+    // Default logic for other expense types
+    participants.forEach((participant) => {
+      if (participant.userId === paidBy) {
+        return;
+      }
 
-    // Update balance where participant owes to the payer
-    operations.push(
-      prisma.groupBalance.upsert({
-        where: {
-          groupId_currency_firendId_userId: {
-            groupId,
-            currency,
+      operations.push(
+        prisma.groupBalance.upsert({
+          where: {
+            groupId_currency_firendId_userId: {
+              groupId: groupId,
+              currency: currency,
+              userId: paidBy,
+              firendId: participant.userId,
+            },
+          },
+          update: {
+            amount: {
+              increment: -toInteger(participant.amount),
+            },
+          },
+          create: {
+            groupId: groupId,
+            currency: currency,
             userId: paidBy,
             firendId: participant.userId,
+            amount: -toInteger(participant.amount),
           },
-        },
-        update: {
-          amount: {
-            increment: -participant.amount,
-          },
-        },
-        create: {
-          groupId,
-          currency,
-          userId: paidBy,
-          firendId: participant.userId,
-          amount: -participant.amount,
-        },
-      })
-    );
+        })
+      );
 
-    // Update balance where payer owes to the participant (opposite balance)
-    operations.push(
-      prisma.groupBalance.upsert({
-        where: {
-          groupId_currency_firendId_userId: {
+      // Update balance where payer owes to the participant (opposite balance)
+      operations.push(
+        prisma.groupBalance.upsert({
+          where: {
+            groupId_currency_firendId_userId: {
+              groupId,
+              currency,
+              firendId: paidBy,
+              userId: participant.userId,
+            },
+          },
+          update: {
+            amount: {
+              increment: participant.amount,
+            },
+          },
+          create: {
             groupId,
             currency,
+            userId: participant.userId,
             firendId: paidBy,
-            userId: participant.userId,
+            amount: participant.amount,
           },
-        },
-        update: {
-          amount: {
-            increment: participant.amount,
-          },
-        },
-        create: {
-          groupId,
-          currency,
-          userId: participant.userId,
-          firendId: paidBy,
-          amount: participant.amount,
-        },
-      })
-    );
+        })
+      );
 
-    // Update payer's balance towards the participant
-    operations.push(
-      prisma.balance.upsert({
-        where: {
-          userId_currency_friendId: {
+      // Update payer's balance towards the participant
+      operations.push(
+        prisma.balance.upsert({
+          where: {
+            userId_currency_friendId: {
+              userId: paidBy,
+              currency: currency,
+              friendId: participant.userId,
+            },
+          },
+          update: {
+            amount: {
+              increment: -toInteger(participant.amount),
+            },
+          },
+          create: {
             userId: paidBy,
-            currency,
+            currency: currency,
             friendId: participant.userId,
+            amount: -toInteger(participant.amount),
           },
-        },
-        update: {
-          amount: {
-            increment: -participant.amount,
-          },
-        },
-        create: {
-          userId: paidBy,
-          currency,
-          friendId: participant.userId,
-          amount: -participant.amount,
-        },
-      })
-    );
+        })
+      );
 
-    // Update participant's balance towards the payer
-    operations.push(
-      prisma.balance.upsert({
-        where: {
-          userId_currency_friendId: {
+      operations.push(
+        prisma.balance.upsert({
+          where: {
+            userId_currency_friendId: {
+              userId: participant.userId,
+              currency: currency,
+              friendId: paidBy,
+            },
+          },
+          update: {
+            amount: {
+              increment: toInteger(participant.amount),
+            },
+          },
+          create: {
             userId: participant.userId,
-            currency,
+            currency: currency,
             friendId: paidBy,
+            amount: toInteger(participant.amount),
           },
-        },
-        update: {
-          amount: {
-            increment: participant.amount,
-          },
-        },
-        create: {
-          userId: participant.userId,
-          currency,
-          friendId: paidBy,
-          amount: participant.amount,
-        },
-      })
-    );
-  });
+        })
+      );
+    });
+  }
 
-  // Execute all operations in a transaction
   return prisma.$transaction(operations);
 };
 
@@ -352,22 +405,22 @@ export const createGroupExpense = async (
   operations.push(
     prisma.expense.create({
       data: {
-        groupId,
-        paidBy,
-        name,
-        category,
+        groupId: groupId,
+        paidBy: paidBy,
+        name: name,
+        category: category,
         amount: modifiedAmount,
-        splitType,
-        currency,
+        splitType: splitType,
+        currency: currency,
         expenseParticipants: {
           create: participants.map((participant) => ({
             userId: participant.userId,
             amount: toInteger(participant.amount),
           })),
         },
-        fileKey,
+        fileKey: fileKey,
         addedBy: currentUserId,
-        expenseDate,
+        expenseDate: expenseDate,
       },
     })
   );
@@ -378,15 +431,12 @@ export const createGroupExpense = async (
       return;
     }
 
-    //participant.amount will be in negative
-
-    // Update balance where participant owes to the payer
     operations.push(
       prisma.groupBalance.upsert({
         where: {
           groupId_currency_firendId_userId: {
-            groupId,
-            currency,
+            groupId: groupId,
+            currency: currency,
             userId: paidBy,
             firendId: participant.userId,
           },
@@ -397,8 +447,8 @@ export const createGroupExpense = async (
           },
         },
         create: {
-          groupId,
-          currency,
+          groupId: groupId,
+          currency: currency,
           userId: paidBy,
           firendId: participant.userId,
           amount: -toInteger(participant.amount),
@@ -438,7 +488,7 @@ export const createGroupExpense = async (
         where: {
           userId_currency_friendId: {
             userId: paidBy,
-            currency,
+            currency: currency,
             friendId: participant.userId,
           },
         },
@@ -449,20 +499,19 @@ export const createGroupExpense = async (
         },
         create: {
           userId: paidBy,
-          currency,
+          currency: currency,
           friendId: participant.userId,
           amount: -toInteger(participant.amount),
         },
       })
     );
 
-    // Update participant's balance towards the payer
     operations.push(
       prisma.balance.upsert({
         where: {
           userId_currency_friendId: {
             userId: participant.userId,
-            currency,
+            currency: currency,
             friendId: paidBy,
           },
         },
@@ -473,9 +522,9 @@ export const createGroupExpense = async (
         },
         create: {
           userId: participant.userId,
-          currency,
+          currency: currency,
           friendId: paidBy,
-          amount: toInteger(participant.amount), // Negative because it's the opposite balance
+          amount: toInteger(participant.amount),
         },
       })
     );
@@ -578,15 +627,15 @@ export const addUserExpense = async (
     // Create the expense
     const expense = await tx.expense.create({
       data: {
-        paidBy,
-        addedBy,
-        name,
-        category,
-        amount,
-        splitType,
-        currency,
-        expenseDate,
-        fileKey,
+        paidBy: paidBy,
+        addedBy: addedBy,
+        name: name,
+        category: category,
+        amount: amount,
+        splitType: splitType,
+        currency: currency,
+        expenseDate: expenseDate,
+        fileKey: fileKey,
         expenseParticipants: {
           createMany: {
             data: participants,
@@ -607,13 +656,13 @@ export const addUserExpense = async (
         where: {
           userId_currency_friendId: {
             userId: paidBy,
-            currency,
+            currency: currency,
             friendId: participant.userId,
           },
         },
         create: {
           userId: paidBy,
-          currency,
+          currency: currency,
           friendId: participant.userId,
           amount: participant.amount,
         },
@@ -629,13 +678,13 @@ export const addUserExpense = async (
         where: {
           userId_currency_friendId: {
             userId: participant.userId,
-            currency,
+            currency: currency,
             friendId: paidBy,
           },
         },
         create: {
           userId: participant.userId,
-          currency,
+          currency: currency,
           friendId: paidBy,
           amount: -participant.amount,
         },
@@ -771,20 +820,20 @@ export async function editExpense(
     prisma.expense.update({
       where: { id: expenseId },
       data: {
-        paidBy,
-        name,
-        category,
+        paidBy: paidBy,
+        name: name,
+        category: category,
         amount: toInteger(amount),
-        splitType,
-        currency,
+        splitType: splitType,
+        currency: currency,
         expenseParticipants: {
           create: participants.map((participant) => ({
             userId: participant.userId,
             amount: toInteger(participant.amount),
           })),
         },
-        fileKey,
-        expenseDate,
+        fileKey: fileKey,
+        expenseDate: expenseDate,
         updatedBy: currentUserId,
       },
     })
@@ -801,13 +850,13 @@ export async function editExpense(
         where: {
           userId_currency_friendId: {
             userId: paidBy,
-            currency,
+            currency: currency,
             friendId: participant.userId,
           },
         },
         create: {
           userId: paidBy,
-          currency,
+          currency: currency,
           friendId: participant.userId,
           amount: -toInteger(participant.amount),
         },
@@ -824,13 +873,13 @@ export async function editExpense(
         where: {
           userId_currency_friendId: {
             userId: participant.userId,
-            currency,
+            currency: currency,
             friendId: paidBy,
           },
         },
         create: {
           userId: participant.userId,
-          currency,
+          currency: currency,
           friendId: paidBy,
           amount: toInteger(participant.amount),
         },
@@ -849,7 +898,7 @@ export async function editExpense(
           where: {
             groupId_currency_firendId_userId: {
               groupId: expense.groupId,
-              currency,
+              currency: currency,
               userId: paidBy,
               firendId: participant.userId,
             },
@@ -857,7 +906,7 @@ export async function editExpense(
           create: {
             amount: -toInteger(participant.amount),
             groupId: expense.groupId,
-            currency,
+            currency: currency,
             userId: paidBy,
             firendId: participant.userId,
           },
@@ -874,7 +923,7 @@ export async function editExpense(
           where: {
             groupId_currency_firendId_userId: {
               groupId: expense.groupId,
-              currency,
+              currency: currency,
               userId: participant.userId,
               firendId: paidBy,
             },
@@ -882,7 +931,7 @@ export async function editExpense(
           create: {
             amount: toInteger(participant.amount),
             groupId: expense.groupId,
-            currency,
+            currency: currency,
             userId: participant.userId,
             firendId: paidBy,
           },
@@ -1031,7 +1080,7 @@ export async function deleteExpense(expenseId: string, deletedBy: string) {
     prisma.expense.update({
       where: { id: expenseId },
       data: {
-        deletedBy,
+        deletedBy: deletedBy,
         deletedAt: new Date(),
       },
     })
@@ -1089,7 +1138,8 @@ async function updateGroupExpenseForIfBalanceIsZero(
 }
 
 export async function getCompleteFriendsDetails(userId: string) {
-  const balances = await prisma.balance.findMany({
+  // First get all friends from the friendship table
+  const friendships = await prisma.friendship.findMany({
     where: {
       userId,
     },
@@ -1098,44 +1148,40 @@ export async function getCompleteFriendsDetails(userId: string) {
     },
   });
 
-  const friends = balances.reduce(
-    (acc, balance) => {
-      const friendId = balance.friendId;
-      if (!acc[friendId]) {
-        acc[friendId] = {
-          balances: [],
-          id: balance.friendId,
-          email: balance.friend.email,
-          name: balance.friend.name,
-          image: balance.friend.image,
-        };
+  // Then get all balances
+  const balances = await prisma.balance.findMany({
+    where: {
+      userId,
+      friendId: {
+        in: friendships.map(f => f.friendId)
       }
-
-      if (balance.amount !== 0) {
-        acc[friendId]?.balances.push({
-          currency: balance.currency,
-          amount:
-            balance.amount > 0
-              ? toFixedNumber(balance.amount)
-              : toFixedNumber(balance.amount),
-        });
-      }
-
-      return acc;
     },
-    {} as Record<
-      string,
-      {
-        id: string;
-        email?: string | null;
-        name?: string | null;
-        balances: { currency: string; amount: number }[];
-        image?: string | null;
-      }
-    >
-  );
+  });
 
-  return Object.values(friends);
+  // Create a map of balances by friend ID
+  const balancesByFriend = balances.reduce((acc, balance) => {
+    if (!acc[balance.friendId]) {
+      acc[balance.friendId] = [];
+    }
+    if (balance.amount !== 0) {
+      acc[balance.friendId].push({
+        currency: balance.currency,
+        amount: toFixedNumber(balance.amount),
+      });
+    }
+    return acc;
+  }, {} as Record<string, { currency: string; amount: number }[]>);
+
+  // Map friendships to the response format
+  const friends = friendships.map(friendship => ({
+    id: friendship.friendId,
+    email: friendship.friend.email,
+    name: friendship.friend.name,
+    image: friendship.friend.image,
+    balances: balancesByFriend[friendship.friendId] || []
+  }));
+
+  return friends;
 }
 
 export async function joinGroup(userId: string, groupId: string) {
@@ -1157,4 +1203,61 @@ export async function joinGroup(userId: string, groupId: string) {
   });
 
   return group;
+}
+
+export async function addFriend(userId: string, friendId: string) {
+  // Check if friendship already exists
+  const existingFriendship = await prisma.friendship.findFirst({
+    where: {
+      OR: [
+        { userId, friendId },
+        { userId: friendId, friendId: userId }
+      ]
+    }
+  });
+
+  if (existingFriendship) {
+    return { message: "Friendship already exists" };
+  }
+
+  // Create bidirectional friendship
+  await prisma.$transaction([
+    prisma.friendship.create({
+      data: {
+        userId,
+        friendId,
+      },
+    }),
+    prisma.friendship.create({
+      data: {
+        userId: friendId,
+        friendId: userId,
+      },
+    }),
+  ]);
+
+  return { message: "Friend added successfully" };
+}
+
+export async function removeFriend(userId: string, friendId: string) {
+  await prisma.$transaction([
+    prisma.friendship.deleteMany({
+      where: {
+        OR: [
+          { userId, friendId },
+          { userId: friendId, friendId: userId }
+        ]
+      }
+    }),
+    prisma.balance.deleteMany({
+      where: {
+        OR: [
+          { userId, friendId },
+          { userId: friendId, friendId: userId }
+        ]
+      }
+    })
+  ]);
+
+  return { message: "Friend removed successfully" };
 }

@@ -92,6 +92,7 @@ model User {
   reminderFrequency         String?
   lastReminderSentAt        DateTime?
   receivedReminders         UserReminder[]          @relation("UserReceiver")
+  timeLockInDefault         Boolean                 @default(false)
 
   @@map("user")
 }

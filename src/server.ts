@@ -3,7 +3,7 @@ import cors from "cors";
 import helmet from "helmet";
 import { env } from "./config/env";
 import { userRouter } from "./routes/user.routes";
-import { groupRouter } from "./routes/group.routes";
+import groupRouter from "./routes/group.routes";
 import { fileRouter } from "./routes/file.routes";
 import { multiChainRouter } from "./routes/multichain.routes";
 import { currencyRouter } from "./routes/currency.routes";
@@ -38,7 +38,21 @@ app.all("/api/auth/*", toNodeHandler(auth));
 
 // Middleware
 app.use(express.json());
-app.use(helmet());
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'", "'unsafe-inline'"],
+        styleSrc: ["'self'", "'unsafe-inline'"],
+        imgSrc: ["'self'", "data:", "https:"],
+        connectSrc: ["'self'", ...FRONTEND_URLS],
+      },
+    },
+    crossOriginEmbedderPolicy: false,
+  })
+);
+
 // Replace morgan with Pino HTTP logger
 app.use(httpLogger);
 app.use(express.urlencoded({ extended: true }));

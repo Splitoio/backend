@@ -245,7 +245,7 @@ export const getExpensesWithFriend = async (req: Request, res: Response) => {
 
 export const updateUserDetails = async (req: Request, res: Response) => {
   const userId = req.user!.id;
-  const { name, currency, stellarAccount, image } = req.body;
+  const { name, currency, stellarAccount, image, timeLockInDefault } = req.body;
 
   if (stellarAccount) {
     const accountExists = await checkAccountExists(stellarAccount);
@@ -265,6 +265,7 @@ export const updateUserDetails = async (req: Request, res: Response) => {
         ...(currency && { currency }),
         ...(stellarAccount && { stellarAccount }),
         ...(image && { image }),
+        ...(typeof timeLockInDefault === 'boolean' ? { timeLockInDefault } : {}),
       },
     });
 
@@ -337,6 +338,19 @@ export const addFriend = async (req: Request, res: Response): Promise<void> => {
       res
         .status(400)
         .json({ message: "Cannot add yourself as friend", status: "error" });
+      return;
+    }
+
+    // Check if friendship already exists
+    const existingFriendship = await prisma.friendship.findFirst({
+      where: {
+        userId: userId,
+        friendId: friend.id,
+      },
+    });
+
+    if (existingFriendship) {
+      res.json({ message: "Already friends", status: "success" });
       return;
     }
 

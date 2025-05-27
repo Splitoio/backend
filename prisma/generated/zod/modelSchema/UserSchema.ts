@@ -18,6 +18,7 @@ export const UserSchema = z.object({
   updatedAt: z.coerce.date(),
   reminderFrequency: z.string().nullable(),
   lastReminderSentAt: z.coerce.date().nullable(),
+  timeLockInDefault: z.boolean(),
 })
 
 export type User = z.infer<typeof UserSchema>

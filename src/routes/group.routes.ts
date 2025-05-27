@@ -13,6 +13,8 @@ import {
   getGroupAcceptedTokens,
   addGroupAcceptedToken,
   removeGroupAcceptedToken,
+  markAsPaidController,
+  removeMemberFromGroup,
 } from "../controllers/group.controller";
 
 import {
@@ -43,5 +45,7 @@ router.get("/settle-transaction/token-options", getSettlementTokenOptions);
 router.post("/settle-transaction/create", settleDebtCreateTransaction);
 router.post("/settle-transaction/submit", settleDebtSubmitTransaction);
 router.delete("/:groupId", deleteGroup);
+router.post("/:groupId/mark-paid", markAsPaidController);
+router.delete("/:groupId/members/:userId", removeMemberFromGroup);
 
-export const groupRouter = router;
+export default router;

@@ -6,8 +6,9 @@ import {
   joinGroup as addMemberById,
   createEnhancedGroupExpense,
   getExpensesWithConvertedValues,
+  updateGroupBalanceForParticipants,
 } from "../services/split.service";
-import { SplitType } from "@prisma/client";
+import { SplitType, CurrencyType } from "@prisma/client";
 import { z } from "zod";
 
 export const createGroup = async (req: Request, res: Response) => {
@@ -552,41 +553,57 @@ export const addMemberToGroup = async (
   }
 };
 
-export const deleteGroup = async (
-  req: Request,
-  res: Response
-): Promise<void> => {
+export const deleteGroup = async (req: Request, res: Response): Promise<void> => {
   const { groupId } = req.params;
   const userId = req.user!.id;
 
   try {
+    // Find the group with all related data
     const group = await prisma.group.findUnique({
-      where: {
-        id: groupId,
-      },
+      where: { id: groupId },
       include: {
         groupBalances: true,
+        expenses: true,
+        groupUsers: true,
       },
     });
 
-    if (group?.userId !== userId) {
+    // Check if group exists
+    if (!group) {
+      res.status(404).json({ error: "Group not found" });
+      return;
+    }
+
+    // Check if user is the creator
+    if (group.userId !== userId) {
       res.status(403).json({ error: "Only creator can delete the group" });
       return;
     }
 
-    const balanceWithNonZero = group?.groupBalances.find((b) => b.amount !== 0);
-
+    // Check for non-zero balances
+    const balanceWithNonZero = group.groupBalances.find((b: any) => b.amount !== 0);
     if (balanceWithNonZero) {
       res.status(400).json({
-        error: "You have a non-zero balance in this group",
+        error: "Cannot delete group with non-zero balances. Please settle all balances first.",
       });
       return;
     }
 
-    await prisma.group.delete({
-      where: {
-        id: groupId,
-      },
+    // Check for any expenses (or add your own logic for pending expenses)
+    if (group.expenses.length > 0) {
+      res.status(400).json({
+        error: "Cannot delete group with expenses. Please remove all expenses first.",
+      });
+      return;
+    }
+
+    // Delete all related data in a transaction
+    await prisma.$transaction(async (prisma) => {
+      await prisma.groupBalance.deleteMany({ where: { groupId } });
+      await prisma.groupAcceptedToken.deleteMany({ where: { groupId } });
+      await prisma.expense.deleteMany({ where: { groupId } });
+      await prisma.groupUser.deleteMany({ where: { groupId } });
+      await prisma.group.delete({ where: { id: groupId } });
     });
 
     res.json({
@@ -595,7 +612,9 @@ export const deleteGroup = async (
     });
   } catch (error) {
     console.error("Delete group error:", error);
-    res.status(500).json({ error: "Failed to delete group" });
+    res.status(500).json({
+      error: error instanceof Error ? error.message : "Failed to delete group"
+    });
   }
 };
 
@@ -763,5 +782,92 @@ export const removeGroupAcceptedToken = async (req: Request, res: Response) => {
   } catch (error) {
     console.error("Remove group accepted token error:", error);
     res.status(500).json({ error: "Failed to remove accepted token" });
+  }
+};
+
+export const markAsPaidController = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { groupId } = req.params;
+    const { payerId, payeeId, amount, currency = "USD", currencyType = CurrencyType.FIAT } = req.body;
+    const currentUserId = req.user?.id;
+    
+    if (!payerId || !payeeId || !amount) {
+      res.status(400).json({ error: "payerId, payeeId, and amount are required" });
+      return;
+    }
+
+    // Create a SETTLEMENT expense to log the payment
+    const expense = await createEnhancedGroupExpense({
+      groupId,
+      paidBy: payerId,
+      name: "Manual Settlement",
+      category: "Settlement",
+      amount: Number(amount),
+      splitType: SplitType.SETTLEMENT,
+      currency,
+      currencyType,
+      participants: [
+        // The payer's amount should be 0 (they paid it)
+        { userId: payerId, amount: 0, currency },
+        // The payee's amount should be the full amount (they received it)
+        { userId: payeeId, amount: Number(amount), currency },
+      ],
+      currentUserId: currentUserId || payerId,
+      expenseDate: new Date(),
+      timeLockIn: false,
+    });
+
+    res.status(200).json({ success: true, expense });
+  } catch (error) {
+    console.error("Mark as paid error:", error);
+    res.status(500).json({ error: "Failed to mark as paid" });
+  }
+};
+
+export const removeMemberFromGroup = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { groupId, userId } = req.params;
+    const currentUserId = req.user!.id;
+
+    // Prevent removing the group creator
+    const group = await prisma.group.findUnique({ where: { id: groupId } });
+    if (!group) {
+      res.status(404).json({ error: "Group not found" });
+      return;
+    }
+    if (group.userId === userId) {
+      res.status(400).json({ error: "Cannot remove the group creator" });
+      return;
+    }
+
+    // Check for outstanding balances
+    const balances = await prisma.groupBalance.findMany({
+      where: {
+        groupId,
+        OR: [
+          { userId },
+          { firendId: userId },
+        ],
+        amount: { not: 0 },
+      },
+    });
+    if (balances.length > 0) {
+      res.status(400).json({ error: "User has outstanding balances in the group" });
+      return;
+    }
+
+    // Remove the member from the group
+    await prisma.groupUser.delete({
+      where: {
+        groupId_userId: {
+          groupId,
+          userId,
+        },
+      },
+    });
+    res.status(200).json({ success: true });
+  } catch (error) {
+    console.error("Remove member from group error:", error);
+    res.status(500).json({ error: "Failed to remove member from group" });
   }
 };

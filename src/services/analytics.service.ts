@@ -7,24 +7,55 @@ export const getMonthlyAnalytics = async (userId: string) => {
   const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
 
   try {
-    const owedThisMonthResult = await prisma.balance.aggregate({
+    // Get individual balances where user owes money (positive amounts) for this month
+    const individualOwed = await prisma.balance.aggregate({
+      _sum: { amount: true },
+      where: {
+        userId: userId,
+        amount: { gt: 0 },
+        updatedAt: { gte: startOfMonth, lte: endOfMonth }
+      },
+    });
+
+    // Get individual balances where user is owed money (negative amounts) for this month
+    const individualLent = await prisma.balance.aggregate({
       _sum: { amount: true },
       where: {
         userId: userId,
         amount: { lt: 0 },
-        updatedAt: { gte: startOfMonth, lte: endOfMonth },
+        updatedAt: { gte: startOfMonth, lte: endOfMonth }
       },
     });
 
-    const lentThisMonthResult = await prisma.balance.aggregate({
+    // Get group balances where user owes money (positive amounts) for this month
+    const groupOwed = await prisma.groupBalance.aggregate({
       _sum: { amount: true },
       where: {
-        friendId: userId,
+        userId: userId,
         amount: { gt: 0 },
-        updatedAt: { gte: startOfMonth, lte: endOfMonth },
+        updatedAt: { gte: startOfMonth, lte: endOfMonth }
       },
     });
 
+    // Get group balances where user is owed money (negative amounts) for this month
+    const groupLent = await prisma.groupBalance.aggregate({
+      _sum: { amount: true },
+      where: {
+        userId: userId,
+        amount: { lt: 0 },
+        updatedAt: { gte: startOfMonth, lte: endOfMonth }
+      },
+    });
+
+    // Calculate total owed (positive balances)
+    const totalOwed = (individualOwed._sum?.amount || 0) + (groupOwed._sum?.amount || 0);
+    const owed = totalOwed.toFixed(2);
+
+    // Calculate total lent (negative balances)
+    const totalLent = Math.abs((individualLent._sum?.amount || 0) + (groupLent._sum?.amount || 0));
+    const lent = totalLent.toFixed(2);
+
+    // Get settlements for this month
     const settledThisMonthResult = await prisma.settlementItem.aggregate({
       _sum: { amount: true },
       where: {
@@ -36,15 +67,9 @@ export const getMonthlyAnalytics = async (userId: string) => {
       },
     });
 
-    const owed = owedThisMonthResult._sum.amount
-      ? Math.abs(owedThisMonthResult._sum.amount).toFixed(2)
-      : "0.00";
-    const lent = lentThisMonthResult._sum.amount
-      ? lentThisMonthResult._sum.amount.toFixed(2)
-      : "0.00";
     const settled = settledThisMonthResult._sum?.amount
-      ? settledThisMonthResult._sum?.amount?.toFixed(2)
-      : "0.00"; // Use originalAmount or xlmAmount
+      ? settledThisMonthResult._sum.amount.toFixed(2)
+      : "0.00";
 
     return {
       owed: `$${owed} USD`,
