@@ -835,6 +835,11 @@ export const removeMemberFromGroup = async (req: Request, res: Response): Promis
       res.status(404).json({ error: "Group not found" });
       return;
     }
+    // Only allow the group creator to remove members
+    if (group.userId !== currentUserId) {
+      res.status(403).json({ error: "Only the group creator can remove members" });
+      return;
+    }
     if (group.userId === userId) {
       res.status(400).json({ error: "Cannot remove the group creator" });
       return;
