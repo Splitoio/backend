@@ -159,6 +159,8 @@ export const updateGroupBalanceForParticipants = async (
   return result;
 };
 
+
+//need to update this accordin to createGroupExpense
 export const createEnhancedGroupExpense = async (
   options: EnhancedExpenseOptions
 ) => {
@@ -193,6 +195,9 @@ export const createEnhancedGroupExpense = async (
       // Continue without exchange rate if it fails
     }
   }
+  //ensure amount is an integer
+  const modifiedAmount = toInteger(amount); 
+ 
 
   // Create expense operation
   operations.push(
@@ -202,7 +207,7 @@ export const createEnhancedGroupExpense = async (
         paidBy: paidBy,
         name: name,
         category: category,
-        amount: amount,
+        amount: modifiedAmount, //  Use integer amount
         splitType: splitType,
         currency: currency,
         currencyType: currencyType,
@@ -213,7 +218,7 @@ export const createEnhancedGroupExpense = async (
         expenseParticipants: {
           create: participants.map((participant) => ({
             userId: participant.userId,
-            amount: participant.amount,
+            amount: toInteger(participant.amount), // Convert each amount to integer
           })),
         },
         fileKey: fileKey,
@@ -231,8 +236,7 @@ export const createEnhancedGroupExpense = async (
       // The one with amount > 0 is the payee, the other is the payer
       const payer = a.amount === 0 ? a : b;
       const payee = a.amount > 0 ? a : b;
-      const amt = payee.amount;
-      // payer pays payee
+
       operations.push(
         prisma.groupBalance.upsert({
           where: {
@@ -253,6 +257,7 @@ export const createEnhancedGroupExpense = async (
           },
         })
       );
+
       operations.push(
         prisma.groupBalance.upsert({
           where: {
@@ -275,11 +280,10 @@ export const createEnhancedGroupExpense = async (
       );
     }
   } else {
-    // Default logic for other expense types
     participants.forEach((participant) => {
-      if (participant.userId === paidBy) {
-        return;
-      }
+      if (participant.userId === paidBy) return; // Skip the payer
+
+      const shareAmount = toInteger(participant.amount); //  Ensure integer
 
       operations.push(
         prisma.groupBalance.upsert({
@@ -293,7 +297,7 @@ export const createEnhancedGroupExpense = async (
           },
           update: {
             amount: {
-              increment: -toInteger(participant.amount),
+              increment: -shareAmount,
             },
           },
           create: {
@@ -301,7 +305,7 @@ export const createEnhancedGroupExpense = async (
             currency: currency,
             userId: paidBy,
             firendId: participant.userId,
-            amount: -toInteger(participant.amount),
+            amount: -shareAmount,
           },
         })
       );
@@ -319,7 +323,7 @@ export const createEnhancedGroupExpense = async (
           },
           update: {
             amount: {
-              increment: participant.amount,
+              increment: shareAmount,
             },
           },
           create: {
@@ -327,7 +331,7 @@ export const createEnhancedGroupExpense = async (
             currency,
             userId: participant.userId,
             firendId: paidBy,
-            amount: participant.amount,
+            amount: shareAmount,
           },
         })
       );
@@ -344,14 +348,14 @@ export const createEnhancedGroupExpense = async (
           },
           update: {
             amount: {
-              increment: -toInteger(participant.amount),
+              increment: -shareAmount,
             },
           },
           create: {
             userId: paidBy,
             currency: currency,
             friendId: participant.userId,
-            amount: -toInteger(participant.amount),
+            amount: -shareAmount,
           },
         })
       );
@@ -367,23 +371,34 @@ export const createEnhancedGroupExpense = async (
           },
           update: {
             amount: {
-              increment: toInteger(participant.amount),
+              increment: shareAmount,
             },
           },
           create: {
             userId: participant.userId,
             currency: currency,
             friendId: paidBy,
-            amount: toInteger(participant.amount),
+            amount: shareAmount,
           },
         })
       );
     });
   }
 
-  return prisma.$transaction(operations);
+  const result = await prisma.$transaction(operations);
+
+  // Adding this if zero-balance cleanup is needed like in createGroupExpense
+  await updateGroupExpenseForIfBalanceIsZero(
+    paidBy,
+    participants.map((p) => p.userId),
+    currency
+  );
+
+  return result[0]; //  Return created expense
 };
 
+
+// Correct flow
 export const createGroupExpense = async (
   groupId: string,
   paidBy: string,
