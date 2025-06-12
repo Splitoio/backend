@@ -15,6 +15,7 @@ import {
   removeGroupAcceptedToken,
   markAsPaidController,
   removeMemberFromGroup,
+  updateGroup,
 } from "../controllers/group.controller";
 
 import {
@@ -47,5 +48,6 @@ router.post("/settle-transaction/submit", settleDebtSubmitTransaction);
 router.delete("/:groupId", deleteGroup);
 router.post("/:groupId/mark-paid", markAsPaidController);
 router.delete("/:groupId/members/:userId", removeMemberFromGroup);
+router.put("/:groupId", updateGroup);
 
 export default router;

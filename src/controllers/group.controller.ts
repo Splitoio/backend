@@ -876,3 +876,24 @@ export const removeMemberFromGroup = async (req: Request, res: Response): Promis
     res.status(500).json({ error: "Failed to remove member from group" });
   }
 };
+
+export const updateGroup = async (req: Request, res: Response) => {
+  const { groupId } = req.params;
+  const { name, description, currency, imageUrl, lockPrice } = req.body;
+  try {
+    const group = await prisma.group.update({
+      where: { id: groupId },
+      data: {
+        name,
+        description,
+        defaultCurrency: currency,
+        image: imageUrl,
+        lockPrice,
+      },
+    });
+    res.json(group);
+  } catch (error) {
+    console.error("Failed to update group:", error);
+    res.status(500).json({ error: "Failed to update group" });
+  }
+};
