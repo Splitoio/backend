@@ -191,6 +191,7 @@ model Group {
   updatedAt              DateTime                @updatedAt
   // contractGroupId Int      @unique
   settlementTransactions SettlementTransaction[]
+  lockPrice              Boolean                 @default(false)
 
   createdBy     User           @relation(fields: [userId], references: [id], onDelete: Cascade)
   groupUsers    GroupUser[]
